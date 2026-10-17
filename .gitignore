@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Saídas do PyInstaller (geradas pelo build.bat)
+build/
+dist/
+*.spec
+
+# Dados da empresa: a planilha de preços é anexada pelo programa, não vai para o repositório
+preço de produto.xlsx
+posicao_estoque*.xlsx
+
+# Planilhas geradas pelo programa
+PLANILHA DE PEDIDOS - novo.xlsx
+PLANILHA DE PEDIDOS - (*).xlsx
+
+# Arquivos temporários do Excel
+~$*
