@@ -21,3 +21,18 @@ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo
 .entrar h1{font-size:1.2rem;margin:0 0 8px}
 .entrar input{padding:9px 10px;border:1px solid var(--borda);border-radius:8px;font-size:1rem}
 .entrar .botao{margin-top:12px}
+.titulo-tela{font-size:1.5rem;margin:0 0 4px}
+.anexo{margin-top:16px}
+.zona{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px;border:2px dashed var(--borda);border-radius:10px;text-align:center}
+.zona.sobre{border-color:var(--destaque);background:#EEF2FF}
+.zona .botao{display:inline-block}
+.aviso{margin-top:16px;border-left:4px solid var(--erro)}
+.painel{margin-top:16px}
+.painel-titulo{font-weight:700;font-size:1.1rem;margin-bottom:6px}
+.painel.sucesso{border-left:4px solid var(--ok)}
+.painel.erro-painel{border-left:4px solid var(--erro);background:#FEF2F2}
+.painel.erro-painel .painel-titulo,.painel.erro-painel .painel-texto{color:var(--erro)}
+.painel-texto{white-space:pre-line}
+.resumo{display:grid;grid-template-columns:max-content 1fr;gap:6px 20px;margin:14px 0}
+.resumo dt{color:var(--suave)}
+.resumo dd{margin:0;overflow-wrap:anywhere}

@@ -153,6 +153,12 @@ def ler_lojas_texto(texto: str) -> dict[tuple[int, int], Loja]:
 # Leitura da planilha
 # ---------------------------------------------------------------------------
 
+MSG_PLANILHA_CORROMPIDA = (
+    "Não foi possível ler a planilha. O arquivo pode estar corrompido "
+    "ou não ser um .xlsx válido."
+)
+
+
 def ler_planilha(origem: Path | bytes) -> dict[str, list[tuple]]:
     """Retorna {aba: [linha1, linha2, ...]} com os valores de todas as linhas."""
     try:
@@ -164,10 +170,7 @@ def ler_planilha(origem: Path | bytes) -> dict[str, list[tuple]]:
             "Feche o arquivo no Excel (ou em outro programa) e tente novamente."
         )
     except (InvalidFileException, zipfile.BadZipFile, KeyError, OSError, ValueError):
-        raise ErroConferencia(
-            "Não foi possível ler a planilha. O arquivo pode estar corrompido "
-            "ou não ser um .xlsx válido."
-        )
+        raise ErroConferencia(MSG_PLANILHA_CORROMPIDA)
 
     try:
         return {ws.title: list(ws.iter_rows(values_only=True)) for ws in wb.worksheets}

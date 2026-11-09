@@ -1,4 +1,44 @@
 {% extends "pedidos/base.html" %}
+{% load static %}
+{% block titulo %}Gerar planilha de pedidos{% endblock %}
 {% block conteudo %}
-<div class="cartao"><h1>Início</h1><p class="suave">Em construção.</p></div>
+<h1 class="titulo-tela">Gerar planilha de pedidos</h1>
+<p class="suave">Anexe a planilha Pedido_MARCA_....xlsx para gerar a PLANILHA DE PEDIDOS - novo.xlsx.</p>
+
+{% if config_ok %}
+<form id="form-inicio" class="cartao anexo" data-url="{% url 'gerar' %}">{% csrf_token %}
+  <div id="zona" class="zona" tabindex="0">
+    <strong>Planilha do pedido</strong>
+    <span class="suave">Arraste o arquivo .xlsx para cá ou use o botão.</span>
+    <label class="botao">Anexar planilha .xlsx
+      <input id="arquivo" type="file" name="planilha" accept=".xlsx" hidden>
+    </label>
+  </div>
+</form>
+{% else %}
+<div class="cartao aviso">
+  <strong>Configuração incompleta.</strong>
+  <p>Cadastre a lista de lojas e o modelo em <a href="/configuracoes">Configurações</a> antes de gerar planilhas.</p>
+</div>
+{% endif %}
+
+<section id="painel" class="cartao painel" aria-live="polite">
+  <div class="painel-titulo">Nenhuma planilha anexada</div>
+  <div class="suave painel-texto">Clique em "Anexar planilha .xlsx" para começar.</div>
+</section>
+{% if config_ok %}<script src="{% static 'pedidos/app.js' %}"></script>
+<script>
+  (function () {
+    var form = document.getElementById("form-inicio");
+    var painel = document.getElementById("painel");
+    function enviarArquivo(arquivos) {
+      var dados = new FormData();
+      dados.append("planilha", arquivos[0]);
+      enviar(form.dataset.url, dados, function (resultado) {
+        mostrarResumoUm(painel, resultado, function () { baixar(resultado.blob, resultado.nome); });
+      }, painel);
+    }
+    zonaArrastar(document.getElementById("zona"), document.getElementById("arquivo"), enviarArquivo, false);
+  })();
+</script>{% endif %}
 {% endblock %}
