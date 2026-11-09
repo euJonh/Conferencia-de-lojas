@@ -5,7 +5,7 @@ na planilha de importação `PLANILHA DE PEDIDOS`, conferindo as lojas contra a 
 oficial (`lojas.txt`) e preenchendo preço, cliente, mensagem da nota e demais campos.
 
 Para usar sem instalar nada além do programa, baixe e rode
-[`instalador/Instalar_ConferenciaLojas_1.1.exe`](instalador/Instalar_ConferenciaLojas_1.1.exe).
+[`instalador/Instalar_ConferenciaLojas_1.2.exe`](instalador/Instalar_ConferenciaLojas_1.2.exe).
 
 ## Tecnologias e dependências
 
@@ -53,7 +53,7 @@ linha 2, uma linha por loja × produto:
 
 | Coluna | Campo | Valor |
 |---|---|---|
-| A | TIPO PEDIDO | `TRANSFERENCIA TESTER 18` se for `1`; `TRANSFERENCIA ME` se for `ME` |
+| A | TIPO PEDIDO | `TRANSFERENCIA TESTER 18` se for `1`; `TRANSFERENCIA ME` se for `ME`; seguido de espaço e da primeira letra da marca (ex.: `TRANSFERENCIA TESTER 18 N`, `TRANSFERENCIA ME S`) |
 | B | PRODUTO | `COD_PP` se for `1`; `COD_ME` se for `ME` |
 | C | QTD.VEN | `1` ou `ME` |
 | D | PRC.VEN | `VALOR UNITARIO` da planilha de preços para o código da coluna B, em R$ (vazio se não houver preço ou planilha) |

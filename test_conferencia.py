@@ -59,11 +59,11 @@ def criar_modelo(caminho: Path) -> None:
 
 
 ESPERADO = [
-    ("TRANSFERENCIA TESTER 18", "D4T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
-    ("TRANSFERENCIA ME", 101, "ME", None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
-    ("TRANSFERENCIA ME", 102, "ME", None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
-    ("TRANSFERENCIA TESTER 18", "B2T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-1000"),
-    ("TRANSFERENCIA TESTER 18", "D4T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-1000"),
+    ("TRANSFERENCIA TESTER 18 D", "D4T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
+    ("TRANSFERENCIA ME D", 101, "ME", None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
+    ("TRANSFERENCIA ME D", 102, "ME", None, None, None, "FIL018", None, None, None, None, None, None, "20-256"),
+    ("TRANSFERENCIA TESTER 18 D", "B2T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-1000"),
+    ("TRANSFERENCIA TESTER 18 D", "D4T", 1, None, None, None, "FIL018", None, None, None, None, None, None, "20-1000"),
 ]
 
 
@@ -204,10 +204,10 @@ class TesteConferencia(unittest.TestCase):
                   for row in ws.iter_rows(min_row=2, max_col=17, values_only=True)]
         # Cada loja traz os pedidos das duas planilhas, na ordem em que foram anexadas.
         self.assertEqual(linhas, [
-            ("TRANSFERENCIA TESTER 18", "NARS-PP", 1, "20-070", "20-070 TESTER SEPHORA NARS"),
-            ("TRANSFERENCIA ME", "Shiseido-ME", "ME", "20-070", "20-070 TRANSFORMAR TESTER SEPHORA Shiseido"),
-            ("TRANSFERENCIA TESTER 18", "NARS-PP", 1, "20-1000", "20-1000 TESTER SEPHORA NARS"),
-            ("TRANSFERENCIA ME", "Shiseido-ME", "ME", "20-1000", "20-1000 TRANSFORMAR TESTER SEPHORA Shiseido"),
+            ("TRANSFERENCIA TESTER 18 N", "NARS-PP", 1, "20-070", "20-070 TESTER SEPHORA NARS"),
+            ("TRANSFERENCIA ME S", "Shiseido-ME", "ME", "20-070", "20-070 TRANSFORMAR TESTER SEPHORA Shiseido"),
+            ("TRANSFERENCIA TESTER 18 N", "NARS-PP", 1, "20-1000", "20-1000 TESTER SEPHORA NARS"),
+            ("TRANSFERENCIA ME S", "Shiseido-ME", "ME", "20-1000", "20-1000 TRANSFORMAR TESTER SEPHORA Shiseido"),
         ])
         self.assertEqual(len(r.arquivos[0].itens), 14)  # 7 lojas × 2 planilhas
 
@@ -231,6 +231,13 @@ class TesteConferencia(unittest.TestCase):
         self.assertEqual(ped[250:], ["20-050"] * 8)
         # A MSG NOTA não muda.
         self.assertEqual({l["Q"] for l in linhas[:250]}, {"20-050 TESTER SEPHORA NARS"})
+
+    def test_tipo_pedido_termina_com_espaco_e_inicial_da_marca(self):
+        lojas = c.ler_lojas(self.lojas)
+        itens = [c.ItemPedido((20, 50), "", "PP", "ME", t, m)
+                 for t, m in (("1", "NARS"), ("ME", "Drunk Elephant"), ("1", "shiseido"))]
+        self.assertEqual([l["A"] for l in c.linhas_do_pedido(itens, lojas)],
+                         ["TRANSFERENCIA TESTER 18 N", "TRANSFERENCIA ME D", "TRANSFERENCIA TESTER 18 S"])
 
     def _criar_precos(self) -> Path:
         arq = self.pasta / "precos.xlsx"

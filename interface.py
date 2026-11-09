@@ -380,7 +380,7 @@ class App:
                 w.bind("<Leave>", lambda _e, k=chave: self._hover_menu(k, False))
             self.itens_menu[chave] = (item, marca, lbl)
 
-        tk.Label(lateral, text="v1.1", bg=COR["lateral"], fg="#4B5563",
+        tk.Label(lateral, text="v1.2", bg=COR["lateral"], fg="#4B5563",
                  font=(FONTE, 8)).pack(side="bottom", anchor="w", padx=px(22), pady=px(14))
 
     def _hover_menu(self, chave, dentro):

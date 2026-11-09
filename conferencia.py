@@ -4,7 +4,7 @@ Lê o cabeçalho (linha 1) de todas as abas da planilha escolhida pelo usuário,
 compara com a lista oficial do lojas.txt e pega as células com 1 ou ME abaixo de
 cada loja (0, X e outros valores são ignorados). Gera "PLANILHA DE PEDIDOS - novo.xlsx",
 cópia idêntica do modelo "PLANILHA DE PEDIDOS.xlsx", com a aba PEDIDO preenchida:
-A = TIPO PEDIDO, B = PRODUTO (COD_PP ou COD_ME), C = QTD.VEN (1 ou ME),
+A = TIPO PEDIDO (+ espaço e inicial da marca), B = PRODUTO (COD_PP ou COD_ME), C = QTD.VEN (1 ou ME),
 D = PRC.VEN (VALOR UNITARIO da planilha de preços, pelo código da coluna B),
 G = CLIENTE (FIL018), N = PED.CLIENTE (código da loja), Q = MSG NOTA (código +
 TESTER SEPHORA ou TRANSFORMAR TESTER SEPHORA + marca do nome Pedido_<MARCA>_...) e
@@ -364,6 +364,12 @@ def extrair_marca(planilha: Path) -> str:
     return marca
 
 
+def inicial_marca(marca: str) -> str:
+    """Letra da marca no fim do TIPO PEDIDO: 'NARS' -> 'N', 'Shiseido' -> 'S'."""
+    marca = marca.strip()
+    return marca[0].upper() if marca else ""
+
+
 def linhas_do_pedido(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
                      precos: dict[str, float] | None = None) -> list[dict[str, object]]:
     """Uma linha da aba PEDIDO por item: {coluna: valor} para A, B, C, D, G, N, Q e X.
@@ -372,6 +378,8 @@ def linhas_do_pedido(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja]
 
     PED.CLIENTE: a cada LIMITE_MSG_NOTA linhas com a mesma MSG NOTA, o código da loja
     ganha um sufixo: linhas 1-99 "20-050", 100-198 "20-0501", 199-297 "20-0502"...
+    TIPO PEDIDO (A) termina com espaço e a primeira letra da marca (N = NARS, D = Drunk,
+    S = Shiseido): "TRANSFERENCIA TESTER 18 N".
     """
     linhas = []
     repeticoes: dict[str, int] = {}
@@ -381,7 +389,7 @@ def linhas_do_pedido(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja]
         bloco = repeticoes.get(msg, 0) // LIMITE_MSG_NOTA
         repeticoes[msg] = repeticoes.get(msg, 0) + 1
         linhas.append({
-            "A": TIPO_PEDIDO[it.tipo],
+            "A": f"{TIPO_PEDIDO[it.tipo]} {inicial_marca(it.marca)}".rstrip(),
             "B": codigo_produto(it),
             "C": 1 if it.tipo == "1" else "ME",
             "D": precos.get(normalizar_codigo(codigo_produto(it))) if precos else None,

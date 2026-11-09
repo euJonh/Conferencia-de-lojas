@@ -5,7 +5,7 @@
 ; junto com o lojas.txt e o modelo PLANILHA DE PEDIDOS.xlsx, que o programa lê da própria pasta.
 
 #define AppNome "Conferência de Lojas"
-#define AppVersao "1.1"
+#define AppVersao "1.2"
 #define AppExe "ConferenciaLojas.exe"
 ; Pasta onde está o .exe gerado pelo PyInstaller (pode trocar com ISCC /DPastaExe=...).
 #ifndef PastaExe
