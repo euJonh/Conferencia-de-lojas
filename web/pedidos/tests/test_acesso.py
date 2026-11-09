@@ -104,7 +104,7 @@ class DebugPadraoTests(TestCase):
         import sys
         from pathlib import Path
         web = Path(__file__).resolve().parents[2]
-        e = {k: v for k, v in os.environ.items() if k not in ("DEBUG", "SECRET_KEY")}
+        e = {k: v for k, v in os.environ.items() if k not in ("DEBUG", "SECRET_KEY", "DATABASE_URL")}
         e.update(env, DJANGO_SETTINGS_MODULE="site_conferencia.settings", PYTHONPATH=str(web))
         return subprocess.run(
             [sys.executable, "-c", "from django.conf import settings; print(settings.DEBUG)"],
@@ -114,5 +114,12 @@ class DebugPadraoTests(TestCase):
         r = self._settings()
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("SECRET_KEY", r.stderr)
-        r = self._settings(SECRET_KEY="x", ALLOWED_HOSTS="a")
+        r = self._settings(SECRET_KEY="x", ALLOWED_HOSTS="a", DATABASE_URL="sqlite:///x.db")
         self.assertEqual(r.stdout.strip(), "False")
+
+    def test_producao_sem_database_url_nao_cai_no_sqlite(self):
+        r = self._settings(SECRET_KEY="x", ALLOWED_HOSTS="a")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("DATABASE_URL", r.stderr)
+        r = self._settings(DEBUG="1")  # desenvolvimento continua usando SQLite
+        self.assertEqual(r.stdout.strip(), "True")

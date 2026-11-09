@@ -41,6 +41,7 @@ AUTHENTICATION_BACKENDS = ["pedidos.autenticacao.BackendComBloqueio"]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "pedidos.middleware.LimiteTamanhoMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "pedidos.middleware.LimiteArquivosLoteMiddleware",
@@ -65,6 +66,8 @@ TEMPLATES = [{
 
 WSGI_APPLICATION = "site_conferencia.wsgi.application"
 
+if not DEBUG and not os.environ.get("DATABASE_URL"):
+    raise ImproperlyConfigured("A variável de ambiente DATABASE_URL é obrigatória em produção.")
 DATABASES = {"default": dj_database_url.config(
     default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
 
@@ -99,7 +102,8 @@ APPEND_SLASH = False
 LOGIN_URL = "entrar"
 LOGIN_REDIRECT_URL = "/"
 
-# Uploads: até 10 MB por arquivo e 30 planilhas por lote.
+# Uploads: até 10 MB por arquivo, 30 planilhas por lote e 100 MB no lote inteiro
+# (o corte pelo tamanho total está em pedidos/middleware.py).
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FILES = 30
@@ -107,6 +111,24 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 30
 # Sessão expira após 12 horas sem uso.
 SESSION_COOKIE_AGE = 43200
 SESSION_SAVE_EVERY_REQUEST = True
+
+# O health check do Render chama /saude por HTTP, sem passar pelo redirecionamento.
+SECURE_REDIRECT_EXEMPT = [r"^saude$"]
+
+# Logs no stderr (o Render guarda). Sem corpo de requisição; 4xx do django.request ficam de fora.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"padrao": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+    "handlers": {"console": {
+        "class": "logging.StreamHandler", "stream": "ext://sys.stderr", "formatter": "padrao"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django.request": {"level": "ERROR", "propagate": True},
+        "pedidos": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True

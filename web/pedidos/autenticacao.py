@@ -2,6 +2,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.backends import ModelBackend
+from django.db.models import F
 from django.utils import timezone
 
 from .models import TentativaLogin
@@ -29,13 +30,17 @@ class BackendComBloqueio(ModelBackend):
         if t.bloqueado_ate:  # bloqueio vencido: recomeça do zero
             t.falhas = 0
             t.bloqueado_ate = None
+            t.save(update_fields=["falhas", "bloqueado_ate"])
         usuario = super().authenticate(request, username=username, password=password, **kwargs)
         if usuario is not None:
             t.falhas = 0
             t.bloqueado_ate = None
+            t.save(update_fields=["falhas", "bloqueado_ate"])
         else:
-            t.falhas += 1
+            # F() soma no banco: logins em paralelo não perdem tentativas.
+            TentativaLogin.objects.filter(pk=t.pk).update(falhas=F("falhas") + 1)
+            t.refresh_from_db()
             if t.falhas >= MAX_FALHAS:
                 t.bloqueado_ate = agora + timedelta(minutes=MINUTOS_BLOQUEIO)
-        t.save()
+                t.save(update_fields=["bloqueado_ate"])
         return usuario

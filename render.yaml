@@ -10,8 +10,9 @@ services:
     plan: starter
     region: oregon
     branch: web
+    healthCheckPath: /saude
     buildCommand: ./web/build.sh
-    startCommand: cd web && python manage.py migrate --noinput && gunicorn site_conferencia.wsgi --bind 0.0.0.0:$PORT
+    startCommand: cd web && python manage.py migrate --noinput && gunicorn site_conferencia.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.2

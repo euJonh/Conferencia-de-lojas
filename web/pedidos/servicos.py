@@ -4,6 +4,7 @@ import logging
 import zipfile
 
 from django.db import transaction
+from django.db.models.functions import Length
 from django.utils import timezone
 from django.http import JsonResponse
 
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 MSG_CONFIG_INCOMPLETA = ("Configuração incompleta: cadastre a lista de lojas e o modelo "
                          "em Configurações.")
+MAX_ITENS_RESUMO = 20  # itens por lista no X-Resumo (o total vai em *_qtd)
 MSG_ERRO_INESPERADO = "Erro inesperado ao gerar; tente novamente ou avise o administrador."
 
 
@@ -38,13 +40,34 @@ def carregar() -> tuple[dict, bytes, dict | None, int]:
     return lojas, modelo, precos, c.lojas_por_arquivo
 
 
+def config_completa() -> bool:
+    """Diz se há modelo e lista de lojas válida, sem ler a planilha de preços nem o modelo."""
+    linha = (Configuracao.objects.filter(pk=1).annotate(tam_modelo=Length("modelo"))
+             .values("tam_modelo", "lojas_texto").first())
+    if not linha or not linha["tam_modelo"]:
+        return False
+    try:
+        ler_lojas_texto(linha["lojas_texto"])
+    except ErroConferencia:
+        return False
+    return True
+
+
+def lojas_por_arquivo() -> int:
+    """Lojas por arquivo de saída do lote, lendo só esse campo."""
+    valor = Configuracao.objects.filter(pk=1).values_list("lojas_por_arquivo", flat=True).first()
+    return valor or Configuracao._meta.get_field("lojas_por_arquivo").default
+
+
 def _gravar(usuario, descricao: str, **campos) -> None:
+    """Grava só os campos mudados, com a linha travada até o fim da transação."""
+    Configuracao.atual()  # garante que a linha existe
     with transaction.atomic():
-        c = Configuracao.atual()
+        c = Configuracao.objects.select_for_update().get(pk=1)
         for nome, valor in campos.items():
             setattr(c, nome, valor)
         c.atualizado_por = usuario
-        c.save()
+        c.save(update_fields=[*campos, "atualizado_por", "atualizado_em"])
         Alteracao.objects.create(usuario=usuario, descricao=descricao[:300])
 
 
@@ -71,6 +94,10 @@ def salvar_lojas(texto: str, usuario) -> int:
 
 def salvar_modelo(nome: str, dados: bytes, usuario) -> None:
     validar_modelo(dados)
+    try:
+        c.gerar_planilha_pedidos_bytes([], {}, dados)
+    except Exception:
+        raise ErroConferencia("O modelo não pôde ser usado para gerar a planilha.") from None
     _gravar(usuario, f"trocou o modelo para {nome}", modelo=dados, modelo_nome=nome)
 
 
@@ -106,9 +133,11 @@ def gerar_um(nome: str, dados: bytes) -> tuple[bytes, dict]:
         "encontradas": len(r.encontradas),
         "total_lojas": len(r.lojas),
         "duplicadas": len(r.duplicadas),
-        "faltando": [loja.codigo for loja in r.faltando],
+        "faltando": [loja.codigo for loja in r.faltando[:MAX_ITENS_RESUMO]],
+        "faltando_qtd": len(r.faltando),
         "nao_reconhecidas": len(r.nao_reconhecidas),
-        "sem_preco": list(r.sem_preco),
+        "sem_preco": list(r.sem_preco)[:MAX_ITENS_RESUMO],
+        "sem_preco_qtd": len(r.sem_preco),
         "tem_precos": precos is not None,
     }
     return saida, resumo
@@ -132,7 +161,8 @@ def gerar_lote(planilhas: list[tuple[str, bytes]]) -> tuple[bytes, dict]:
         "linhas": sum(len(a.itens) for a in r.arquivos),
         "arquivos": [{"nome": c.nome_saida_lote(n), "lojas": _faixa(a.lojas), "linhas": len(a.itens)}
                      for n, a in enumerate(r.arquivos, start=1)],
-        "sem_preco": list(r.sem_preco),
+        "sem_preco": list(r.sem_preco)[:MAX_ITENS_RESUMO],
+        "sem_preco_qtd": len(r.sem_preco),
         "tem_precos": precos is not None,
     }
     return buf.getvalue(), resumo

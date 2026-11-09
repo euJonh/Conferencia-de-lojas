@@ -17,4 +17,5 @@ urlpatterns = [
          name="configuracoes_lojas_por_arquivo"),
     path("entrar", views.entrar, name="entrar"),
     path("sair", views.sair, name="sair"),
+    path("saude", views.saude, name="saude"),
 ]

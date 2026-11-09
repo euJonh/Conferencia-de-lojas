@@ -3,11 +3,12 @@
 
 var MSG_ERRO_INESPERADO = "Erro inesperado ao gerar; tente novamente ou avise o administrador.";
 
+/* O cookie é o valor mais novo (a sessão pode ter mudado em outra aba); o campo oculto é o reserva. */
 function csrfToken() {
-  var campo = document.querySelector("input[name=csrfmiddlewaretoken]");
-  if (campo) return campo.value;
   var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : "";
+  if (m) return decodeURIComponent(m[1]);
+  var campo = document.querySelector("input[name=csrfmiddlewaretoken]");
+  return campo ? campo.value : "";
 }
 
 function el(tag, classe, texto) {
@@ -86,7 +87,8 @@ function enviar(url, formData, aoConcluir, painel) {
     xhr.response.text().then(function (corpo) {
       var dados = {};
       try { dados = JSON.parse(corpo); } catch (e) { /* corpo não é JSON */ }
-      mostrarErro(painel, dados.erro || MSG_ERRO_INESPERADO, dados.config, xhr.status === 401);
+      var msg = dados.erro || (xhr.status === 403 ? "Sua sessão mudou. Recarregue a página." : MSG_ERRO_INESPERADO);
+      mostrarErro(painel, msg, dados.config, xhr.status === 401);
     });
   };
   xhr.onerror = function () {
@@ -99,7 +101,7 @@ function enviar(url, formData, aoConcluir, painel) {
 
 function textoPrecos(r) {
   if (!r.tem_precos) return "planilha de preços não anexada";
-  var n = r.sem_preco.length;
+  var n = r.sem_preco_qtd;
   if (!n) return "todos os produtos com preço";
   var exemplos = r.sem_preco.slice(0, 3).join(", ") + (n > 3 ? "..." : "");
   return n + " produto" + (n > 1 ? "s" : "") + " sem preço (" + exemplos + ")";
@@ -114,7 +116,8 @@ function mostrarResumoUm(painel, resultado, aoBaixar) {
     ["Linhas no pedido", r.linhas + " (" + r.com_1 + " com 1 · " + r.com_me + " com ME)"],
     ["Lojas encontradas", r.encontradas + " de " + r.total_lojas],
     ["Duplicadas", String(r.duplicadas)],
-    ["Faltando", r.faltando.length ? r.faltando.join(", ") : "0"],
+    ["Faltando", r.faltando_qtd ? r.faltando.join(", ") + (r.faltando_qtd > r.faltando.length
+      ? " e mais " + (r.faltando_qtd - r.faltando.length) : "") : "0"],
     ["Não reconhecidas", String(r.nao_reconhecidas)],
     ["Preços", textoPrecos(r)]
   ];

@@ -8,7 +8,7 @@
   <h2>Lista de lojas</h2>
   <p class="suave">{{ qtd_lojas }} loja{{ qtd_lojas|pluralize }} válida{{ qtd_lojas|pluralize }}. Uma por linha: 20-256 ou 20-256 LOJA MOOCA (SP).</p>
   <form method="post" action="{% url 'configuracoes_lojas' %}" enctype="multipart/form-data">{% csrf_token %}
-    <textarea name="lojas_texto" rows="10" class="campo-texto">{{ cfg.lojas_texto }}</textarea>
+    <textarea name="lojas_texto" rows="10" class="campo-texto">{{ lojas_texto }}</textarea>
     <div class="linha-acoes">
       <label class="suave">Ou importe um arquivo .txt (vale no lugar do texto acima):
         <input type="file" name="lojas_arquivo" accept=".txt">

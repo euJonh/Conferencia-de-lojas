@@ -219,7 +219,7 @@ python web/manage.py test pedidos
 | `SECRET_KEY` | Obrigatória em produção (o Render gera sozinho). |
 | `DEBUG` | `False` por padrão; `manage.py` define `1` só para uso local. |
 | `ALLOWED_HOSTS` | Domínios aceitos, separados por vírgula (`.onrender.com`). |
-| `DATABASE_URL` | Banco PostgreSQL (o Render preenche a partir do `conferencia-db`). |
+| `DATABASE_URL` | Banco PostgreSQL (o Render preenche a partir do `conferencia-db`). Obrigatória quando `DEBUG` é falso: sem ela o site não sobe, em vez de cair em SQLite. |
 
 ### Publicar no Render
 
@@ -238,8 +238,21 @@ serviço web `conferencia-lojas` (plano `starter`, branch `web`).
 5. Em **Configurações**, anexe a planilha de preços (`CODIGO` na coluna A e
    `VALOR UNITARIO` na coluna K).
 
+O serviço roda `gunicorn` com 2 workers e timeout de 120 segundos (`--workers 2 --timeout 120`),
+porque gerar um lote grande pode levar mais que os 30 segundos padrão. O Render confere
+`/saude` (resposta `ok`, sem login e sem redirecionar para HTTPS) para saber se o serviço
+está de pé. Os logs vão para o stderr (aparecem em **Logs** no Render): erros 500 saem com o
+traceback, sem o conteúdo das requisições.
+
+**Limites de envio:** 10 MB por planilha, 30 planilhas por lote e **100 MB no total do lote**
+(qualquer outro envio, 12 MB). Acima disso o site responde 413 antes de ler o arquivo, e a
+tela do lote avisa antes de enviar. A instância tem 512 MB de memória; o limite em bytes não
+limita o número de linhas, e planilhas com centenas de milhares de linhas gastam muita
+memória (medido: 10 planilhas de 90 mil linhas, 31 MB no total, chegaram a 3 GB).
+
 O site só responde em HTTPS (redirecionamento, cookies seguros e HSTS de 1 ano).
-`python web/manage.py check --deploy` mostra apenas dois avisos, deixados de propósito:
+`python web/manage.py check --deploy` precisa de `DEBUG=False` e `SECRET_KEY` (e `DATABASE_URL`) definidos
+no ambiente; sem eles o Django confere a configuração de desenvolvimento. Ele mostra apenas dois avisos, deixados de propósito:
 `SECURE_HSTS_INCLUDE_SUBDOMAINS` e `SECURE_HSTS_PRELOAD`. O domínio `onrender.com` não
 é nosso, então não faz sentido forçar HSTS nos subdomínios nem entrar na lista de
 pré-carregamento dos navegadores. Com um domínio próprio, dá para ligar os dois.

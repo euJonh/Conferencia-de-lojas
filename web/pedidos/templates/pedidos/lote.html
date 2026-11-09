@@ -6,7 +6,7 @@
 {% if config_ok %}
 <p class="suave">Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>
 
-<form id="form-lote" class="cartao anexo" data-url="{% url 'gerar_lote' %}" data-max="{{ max_planilhas }}">{% csrf_token %}
+<form id="form-lote" class="cartao anexo" data-url="{% url 'gerar_lote' %}" data-max="{{ max_planilhas }}" data-limite="{{ limite_lote }}" data-msg-limite="{{ msg_limite_lote }}">{% csrf_token %}
   <div id="zona" class="zona" tabindex="0">
     <strong id="qtd-lote">Planilhas anexadas (0)</strong>
     <span class="suave">Arraste os arquivos .xlsx para cá ou use o botão (até {{ max_planilhas }} por vez).</span>
@@ -40,7 +40,12 @@
     var lista = document.getElementById("lista-lote");
     var qtd = document.getElementById("qtd-lote");
     var max = parseInt(form.dataset.max, 10);
+    var limite = parseInt(form.dataset.limite, 10);
     var arquivos = [];
+
+    function totalBytes() {
+      return arquivos.reduce(function (soma, f) { return soma + f.size; }, 0);
+    }
 
     function mostrarOcioso() {
       var n = arquivos.length;
@@ -82,6 +87,8 @@
       desenhar();
       if (arquivos.length > max) {
         mostrarErro(painel, "Envie no máximo " + max + " planilhas por vez. Remova algumas da lista.", false, false);
+      } else if (totalBytes() > limite) {
+        mostrarErro(painel, form.dataset.msgLimite, false, false);
       }
     }
 
@@ -95,6 +102,10 @@
       if (envioPendente || !arquivos.length) return;
       if (arquivos.length > max) {
         mostrarErro(painel, "Envie no máximo " + max + " planilhas por vez. Remova algumas da lista.", false, false);
+        return;
+      }
+      if (totalBytes() > limite) {
+        mostrarErro(painel, form.dataset.msgLimite, false, false);
         return;
       }
       var dados = new FormData();

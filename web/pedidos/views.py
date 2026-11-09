@@ -17,6 +17,7 @@ from conferencia import NOME_SAIDA, ErroConferencia, ler_lojas_texto
 
 from . import servicos
 from .autenticacao import MINUTOS_BLOQUEIO, bloqueado
+from .middleware import LIMITE_LOTE, MSG_LOTE_GRANDE
 from .forms import checar_xlsx, ler_txt_lojas
 from .models import Alteracao, Configuracao
 
@@ -61,15 +62,15 @@ def sair(request):
     return redirect("entrar")
 
 
+def saude(request):
+    """Verificação de saúde do Render: sem login e sem banco."""
+    return HttpResponse("ok", content_type="text/plain")
+
+
 @login_required
 def inicio(request):
     """Tela Início: anexar uma planilha de pedido e baixar a gerada."""
-    try:
-        servicos.carregar()
-        config_ok = True
-    except servicos.ConfigIncompleta:
-        config_ok = False
-    return render(request, "pedidos/inicio.html", {"config_ok": config_ok})
+    return render(request, "pedidos/inicio.html", {"config_ok": servicos.config_completa()})
 
 
 MAX_PLANILHAS = 30
@@ -108,15 +109,11 @@ def gerar(request):
 @login_required
 def lote(request):
     """Tela Gerar em lote: várias planilhas viram um .zip."""
-    por_arquivo = 0
-    try:
-        por_arquivo = servicos.carregar()[3]
-        config_ok = True
-    except servicos.ConfigIncompleta:
-        config_ok = False
+    por_arquivo = servicos.lojas_por_arquivo()
     return render(request, "pedidos/lote.html", {
-        "config_ok": config_ok, "max_planilhas": MAX_PLANILHAS, "por_arquivo": por_arquivo,
-        "plural": por_arquivo > 1})
+        "config_ok": servicos.config_completa(), "max_planilhas": MAX_PLANILHAS,
+        "por_arquivo": por_arquivo, "plural": por_arquivo > 1,
+        "limite_lote": LIMITE_LOTE, "msg_limite_lote": MSG_LOTE_GRANDE})
 
 
 @require_POST
@@ -157,8 +154,10 @@ def configuracoes(request):
         qtd_lojas = len(ler_lojas_texto(cfg.lojas_texto))
     except ErroConferencia:
         qtd_lojas = 0
+    rascunho = request.session.pop("lojas_rascunho", None)  # texto recusado na última tentativa
     return render(request, "pedidos/configuracoes.html", {
         "cfg": cfg, "qtd_lojas": qtd_lojas,
+        "lojas_texto": cfg.lojas_texto if rascunho is None else rascunho,
         "historico": Alteracao.objects.select_related("usuario")[:20]})
 
 
@@ -190,7 +189,11 @@ def configuracoes_lojas(request):
         texto = ler_txt_lojas(arquivo)
     else:
         texto = "\n".join(request.POST.get("lojas_texto", "").splitlines())
-    qtd = servicos.salvar_lojas(texto, request.user)
+    try:
+        qtd = servicos.salvar_lojas(texto, request.user)
+    except ErroConferencia:
+        request.session["lojas_rascunho"] = texto  # a próxima tela devolve o texto ao campo
+        raise
     return f"Lista de lojas salva ({qtd} lojas)."
 
 
