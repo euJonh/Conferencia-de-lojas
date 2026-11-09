@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import Client, TestCase
 from openpyxl import Workbook
 
 from pedidos.models import Configuracao
@@ -83,6 +83,19 @@ class LoteTests(TestCase):
         r = self.client.post("/gerar-lote", {"planilhas": arqs})
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()["erro"], "Envie no máximo 30 planilhas por vez.")
+
+    def test_lote_mais_de_30_com_csrf_real(self):
+        cliente = Client(enforce_csrf_checks=True)
+        cliente.force_login(self.u)
+        cliente.get("/lote")
+        token = cliente.cookies["csrftoken"].value
+        arqs = [SimpleUploadedFile(f"Pedido_NARS_{i}.xlsx", bytes_planilha("NARS", 1))
+                for i in range(31)]
+        r = cliente.post("/gerar-lote", {"planilhas": arqs}, headers={"X-CSRFToken": token})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["erro"], "Envie no máximo 30 planilhas por vez.")
+        sem_token = cliente.post("/gerar-lote", {"planilhas": self.dois()})
+        self.assertEqual(sem_token.status_code, 403)
 
     def test_mesmo_arquivo_duas_vezes(self):
         um = self.client.post("/gerar-lote", {"planilhas": self.dois()[:1]})
