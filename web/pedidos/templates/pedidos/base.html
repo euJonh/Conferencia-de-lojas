@@ -12,7 +12,7 @@
     <nav>
       <a href="{% url 'inicio' %}">Início</a>
       <a href="{% url 'lote' %}">Gerar em lote</a>
-      <a href="#">Configurações</a>
+      <a href="{% url 'configuracoes' %}">Configurações</a>
     </nav>
     <div class="usuario">
       <span>{{ request.user.get_username }}</span>
@@ -22,6 +22,9 @@
     </div>
   </aside>
   <main class="conteudo">
+    {% for m in messages %}
+    <div class="mensagem {{ m.tags }}" role="status">{{ m }}</div>
+    {% endfor %}
     {% block conteudo %}{% endblock %}
   </main>
 </body>

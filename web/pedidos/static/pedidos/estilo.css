@@ -42,3 +42,13 @@ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo
 .acoes-lote{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
 .botao.secundario{background:transparent;color:var(--destaque);border:1px solid var(--borda)}
 .painel-texto{white-space:pre-line}
+.mensagem{padding:10px 14px;border-radius:8px;margin-bottom:14px;background:#fff;border:1px solid var(--borda);border-left:4px solid var(--ok);white-space:pre-line}
+.mensagem.error{border-left-color:var(--erro);color:var(--erro);background:#FEF2F2}
+.bloco{margin-top:16px}
+.bloco h2{font-size:1.1rem;margin:0 0 8px}
+.campo-texto{width:100%;font-family:Consolas,monospace;padding:10px;border:1px solid var(--borda);border-radius:8px}
+.linha-acoes{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.valor{min-width:2ch;text-align:center;font-size:1.2rem}
+.campo-numero{width:80px;padding:8px;border:1px solid var(--borda);border-radius:8px}
+.historico{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.botao:disabled{opacity:.5;cursor:default}

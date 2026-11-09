@@ -2,6 +2,7 @@
 import json
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from functools import wraps
 
@@ -12,11 +13,12 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from conferencia import NOME_SAIDA, ErroConferencia
+from conferencia import NOME_SAIDA, ErroConferencia, ler_lojas_texto
 
 from . import servicos
 from .autenticacao import MINUTOS_BLOQUEIO, bloqueado
-from .forms import checar_xlsx
+from .forms import checar_xlsx, ler_txt_lojas
+from .models import Alteracao, Configuracao
 
 MSG_ERRO = "Usuário ou senha incorretos."
 MSG_BLOQUEIO = f"Muitas tentativas. Tente novamente em {MINUTOS_BLOQUEIO} minutos."
@@ -145,3 +147,78 @@ def gerar_lote(request):
     resposta["Content-Disposition"] = 'attachment; filename="PLANILHAS DE PEDIDOS.zip"'
     resposta["X-Resumo"] = json.dumps(resumo, ensure_ascii=True)
     return resposta
+
+
+@login_required
+def configuracoes(request):
+    """Tela Configurações: lojas, modelo, preços, lojas por arquivo e histórico."""
+    cfg = Configuracao.atual()
+    try:
+        qtd_lojas = len(ler_lojas_texto(cfg.lojas_texto))
+    except ErroConferencia:
+        qtd_lojas = 0
+    return render(request, "pedidos/configuracoes.html", {
+        "cfg": cfg, "qtd_lojas": qtd_lojas,
+        "historico": Alteracao.objects.select_related("usuario")[:20]})
+
+
+def _acao(visao):
+    """Ação de Configurações: só POST, com login; avisa o resultado e volta para a tela."""
+    @wraps(visao)
+    @require_POST
+    @login_required
+    def envolvida(request):
+        try:
+            messages.success(request, visao(request))
+        except ErroConferencia as e:
+            messages.error(request, str(e))
+        return redirect("configuracoes")
+    return envolvida
+
+
+def _arquivo_xlsx(request, campo):
+    arquivo = request.FILES.get(campo)
+    if arquivo is None:
+        raise ErroConferencia("Envie um arquivo .xlsx.")
+    return arquivo.name, checar_xlsx(arquivo)
+
+
+@_acao
+def configuracoes_lojas(request):
+    arquivo = request.FILES.get("lojas_arquivo")
+    if arquivo is not None:
+        texto = ler_txt_lojas(arquivo)
+    else:
+        texto = "\n".join(request.POST.get("lojas_texto", "").splitlines())
+    qtd = servicos.salvar_lojas(texto, request.user)
+    return f"Lista de lojas salva ({qtd} lojas)."
+
+
+@_acao
+def configuracoes_modelo(request):
+    nome, dados = _arquivo_xlsx(request, "modelo")
+    servicos.salvar_modelo(nome, dados, request.user)
+    return f"Modelo trocado para {nome}."
+
+
+@_acao
+def configuracoes_precos(request):
+    nome, dados = _arquivo_xlsx(request, "precos")
+    qtd = servicos.salvar_precos(nome, dados, request.user)
+    return f"Planilha de preços trocada para {nome} ({qtd} produtos)."
+
+
+@_acao
+def configuracoes_precos_remover(request):
+    servicos.remover_precos(request.user)
+    return "Planilha de preços removida."
+
+
+@_acao
+def configuracoes_lojas_por_arquivo(request):
+    try:
+        valor = int(request.POST.get("valor", "").strip())
+    except ValueError:
+        raise ErroConferencia("Informe um número inteiro.") from None
+    servicos.salvar_lojas_por_arquivo(valor, request.user)
+    return f"Lojas por arquivo: {valor}."
