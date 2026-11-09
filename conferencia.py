@@ -542,21 +542,21 @@ def gerar_planilha_pedidos_bytes(itens: list[ItemPedido], lojas: dict[tuple[int,
     return saida.getvalue()
 
 
-def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
-                           modelo: Path, destino: Path, precos: dict[str, float] | None = None) -> None:
+def _ler_modelo(modelo: Path) -> bytes:
     if not modelo.is_file():
         raise ErroConferencia(
             f"Modelo {NOME_MODELO} não encontrado.\n\n"
             f"Coloque o {NOME_MODELO} na mesma pasta do programa:\n{modelo.parent}"
         )
     try:
-        dados_modelo = modelo.read_bytes()
+        return modelo.read_bytes()
     except PermissionError:
         raise ErroConferencia(f"O modelo {NOME_MODELO} está aberto em outro programa. Feche-o e tente novamente.")
     except OSError:
         raise ErroConferencia(f"O modelo {NOME_MODELO} está corrompido ou não é um .xlsx válido.")
-    dados = gerar_planilha_pedidos_bytes(itens, lojas, dados_modelo, precos)
 
+
+def _gravar(destino: Path, dados: bytes) -> None:
     try:
         destino.write_bytes(dados)
     except PermissionError:
@@ -564,6 +564,13 @@ def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int],
             f"Não foi possível salvar a planilha:\n{destino}\n\n"
             "Se ela estiver aberta no Excel, feche-a e tente novamente."
         )
+
+
+def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
+                           modelo: Path, destino: Path, precos: dict[str, float] | None = None) -> None:
+    dados_modelo = _ler_modelo(modelo)
+    dados = gerar_planilha_pedidos_bytes(itens, lojas, dados_modelo, precos)
+    _gravar(destino, dados)
 
 
 def caminho_saida(planilha: Path, pasta_saida: Path | None = None) -> Path:
@@ -718,17 +725,7 @@ def processar_lote(planilhas: list[Path], lojas_txt: Path, modelo: Path,
     avisar("Lendo o lojas.txt e os preços", 0.0)
     lojas = ler_lojas(lojas_txt)
     precos = ler_precos(planilha_precos) if planilha_precos else None
-    if not modelo.is_file():
-        raise ErroConferencia(
-            f"Modelo {NOME_MODELO} não encontrado.\n\n"
-            f"Coloque o {NOME_MODELO} na mesma pasta do programa:\n{modelo.parent}"
-        )
-    try:
-        dados_modelo = modelo.read_bytes()
-    except PermissionError:
-        raise ErroConferencia(f"O modelo {NOME_MODELO} está aberto em outro programa. Feche-o e tente novamente.")
-    except OSError:
-        raise ErroConferencia(f"O modelo {NOME_MODELO} está corrompido ou não é um .xlsx válido.")
+    dados_modelo = _ler_modelo(modelo)
 
     lidas = []
     for planilha in planilhas:
@@ -751,13 +748,7 @@ def processar_lote(planilhas: list[Path], lojas_txt: Path, modelo: Path,
     pasta = pasta_saida or planilhas[0].parent
     for arq in r.arquivos:
         arq.destino = pasta / arq.nome
-        try:
-            arq.destino.write_bytes(arq.dados)
-        except PermissionError:
-            raise ErroConferencia(
-                f"Não foi possível salvar a planilha:\n{arq.destino}\n\n"
-                "Se ela estiver aberta no Excel, feche-a e tente novamente."
-            )
+        _gravar(arq.destino, arq.dados)
     return r
 
 
