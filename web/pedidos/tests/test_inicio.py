@@ -130,6 +130,18 @@ class InicioTests(TestCase):
 
     def test_exige_login_e_post(self):
         self.client.logout()
-        self.assertEqual(self.client.post("/gerar").status_code, 302)
+        r = self.client.post("/gerar")
+        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.json()["erro"], "Sua sessão expirou. Entre novamente.")
         self.client.force_login(self.u)
         self.assertEqual(self.client.get("/gerar").status_code, 405)
+
+    def test_pagina_anonima_continua_redirecionando(self):
+        self.client.logout()
+        self.assertEqual(self.client.get("/").status_code, 302)
+
+    def test_config_incompleta_sem_painel_ocioso(self):
+        cfg = Configuracao.atual()
+        cfg.modelo = b""
+        cfg.save()
+        self.assertNotContains(self.client.get("/"), "Nenhuma planilha anexada")

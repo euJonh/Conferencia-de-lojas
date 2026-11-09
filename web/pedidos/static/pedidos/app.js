@@ -40,28 +40,44 @@ function nomeDoCabecalho(xhr, padrao) {
   return m ? m[1] : padrao;
 }
 
-function mostrarErro(painel, mensagem, config) {
+function mostrarErro(painel, mensagem, config, entrar) {
   painelMostrar(painel, "erro-painel", "Não foi possível gerar", mensagem);
-  if (config) {
-    var a = el("a", "", "Ir para Configurações");
-    a.href = "/configuracoes";
+  if (config || entrar) {
+    var a = el("a", "", entrar ? "Entrar novamente" : "Ir para Configurações");
+    a.href = entrar ? "/entrar" : "/configuracoes";
     painel.appendChild(a);
   }
+}
+
+/* Só um envio por vez; enquanto pendente, zonas e campos de arquivo ficam desabilitados. */
+var envioPendente = false;
+
+function bloquearEnvio(bloquear) {
+  envioPendente = bloquear;
+  document.querySelectorAll("input[type=file]").forEach(function (i) { i.disabled = bloquear; });
+  document.querySelectorAll(".zona").forEach(function (z) { z.classList.toggle("ocupada", bloquear); });
 }
 
 /* POST de formData em url. Em 2xx baixa o arquivo e chama
    aoConcluir({blob, nome, resumo}); em erro mostra o painel vermelho. */
 function enviar(url, formData, aoConcluir, painel) {
+  if (envioPendente) return null;
   painel = painel || document.getElementById("painel");
+  bloquearEnvio(true);
   painelMostrar(painel, "gerando", "Gerando...", "Aguarde, isso leva alguns segundos.");
   var xhr = new XMLHttpRequest();
   xhr.open("POST", url);
   xhr.responseType = "blob";
   xhr.setRequestHeader("X-CSRFToken", csrfToken());
   xhr.onload = function () {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      var resumo = {};
-      try { resumo = JSON.parse(xhr.getResponseHeader("X-Resumo") || "{}"); } catch (e) { /* sem resumo */ }
+    bloquearEnvio(false);
+    var cabecalho = xhr.getResponseHeader("X-Resumo");
+    if (xhr.status >= 200 && xhr.status < 300 && cabecalho) {
+      var resumo;
+      try { resumo = JSON.parse(cabecalho); } catch (e) {
+        mostrarErro(painel, MSG_ERRO_INESPERADO, false, false);
+        return;
+      }
       var resultado = {blob: xhr.response, nome: nomeDoCabecalho(xhr, "planilha.xlsx"), resumo: resumo};
       baixar(resultado.blob, resultado.nome);
       aoConcluir(resultado);
@@ -70,10 +86,11 @@ function enviar(url, formData, aoConcluir, painel) {
     xhr.response.text().then(function (corpo) {
       var dados = {};
       try { dados = JSON.parse(corpo); } catch (e) { /* corpo não é JSON */ }
-      mostrarErro(painel, dados.erro || MSG_ERRO_INESPERADO, dados.config);
+      mostrarErro(painel, dados.erro || MSG_ERRO_INESPERADO, dados.config, xhr.status === 401);
     });
   };
   xhr.onerror = function () {
+    bloquearEnvio(false);
     mostrarErro(painel, "Não foi possível conectar ao servidor. Verifique a conexão e tente novamente.", false);
   };
   xhr.send(formData);
@@ -128,6 +145,7 @@ function zonaArrastar(zona, input, aoEscolher, multiplos) {
     zona.addEventListener(nome, function (e) { e.preventDefault(); zona.classList.remove("sobre"); });
   });
   zona.addEventListener("drop", function (e) {
+    if (envioPendente) return;
     var arquivos = Array.prototype.slice.call(e.dataTransfer.files);
     if (arquivos.length) aoEscolher(multiplos ? arquivos : arquivos.slice(0, 1));
   });

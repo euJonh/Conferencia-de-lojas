@@ -36,3 +36,4 @@ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo
 .resumo{display:grid;grid-template-columns:max-content 1fr;gap:6px 20px;margin:14px 0}
 .resumo dt{color:var(--suave)}
 .resumo dd{margin:0;overflow-wrap:anywhere}
+.zona.ocupada{opacity:.6;pointer-events:none}

@@ -22,11 +22,12 @@
 </div>
 {% endif %}
 
+{% if config_ok %}
 <section id="painel" class="cartao painel" aria-live="polite">
   <div class="painel-titulo">Nenhuma planilha anexada</div>
   <div class="suave painel-texto">Clique em "Anexar planilha .xlsx" para começar.</div>
 </section>
-{% if config_ok %}<script src="{% static 'pedidos/app.js' %}"></script>
+<script src="{% static 'pedidos/app.js' %}"></script>
 <script>
   (function () {
     var form = document.getElementById("form-inicio");

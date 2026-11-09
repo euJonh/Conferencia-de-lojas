@@ -3,7 +3,9 @@ import json
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from functools import wraps
+
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -67,8 +69,21 @@ def inicio(request):
     return render(request, "pedidos/inicio.html", {"config_ok": config_ok})
 
 
-@login_required
+MSG_SESSAO_EXPIRADA = "Sua sessão expirou. Entre novamente."
+
+
+def login_required_json(visao):
+    """Como login_required, mas responde 401 JSON (em vez de redirecionar) para o JavaScript."""
+    @wraps(visao)
+    def envolvida(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"erro": MSG_SESSAO_EXPIRADA, "entrar": True}, status=401)
+        return visao(request, *args, **kwargs)
+    return envolvida
+
+
 @require_POST
+@login_required_json
 def gerar(request):
     """Recebe `planilha` e devolve o .xlsx gerado, com o resumo em X-Resumo."""
     try:
