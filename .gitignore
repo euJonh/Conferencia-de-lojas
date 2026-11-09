@@ -17,3 +17,6 @@ PLANILHA DE PEDIDOS - (*).xlsx
 
 # Arquivos temporários do Excel
 ~$*
+
+web/staticfiles/
+*.sqlite3

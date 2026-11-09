@@ -1,0 +1,22 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar - Conferência de Pedidos</title>
+  <link rel="stylesheet" href="{% static 'pedidos/estilo.css' %}">
+</head>
+<body class="pagina-entrar">
+  <form method="post" action="{% url 'entrar' %}" class="cartao entrar">
+    {% csrf_token %}
+    <h1>Conferência de Pedidos</h1>
+    {% if erro %}<p class="erro" role="alert">{{ erro }}</p>{% endif %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label for="username">Usuário</label>
+    <input id="username" name="username" type="text" autocomplete="username" autofocus required>
+    <label for="password">Senha</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit" class="botao">Entrar</button>
+  </form>
+</body>
+</html>

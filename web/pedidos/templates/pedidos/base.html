@@ -1,0 +1,28 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Conferência de Pedidos{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'pedidos/estilo.css' %}">
+</head>
+<body>
+  <aside class="lateral">
+    <div class="marca">Conferência de Pedidos</div>
+    <nav>
+      <a href="{% url 'inicio' %}">Início</a>
+      <a href="#">Gerar em lote</a>
+      <a href="#">Configurações</a>
+    </nav>
+    <div class="usuario">
+      <span>{{ request.user.get_username }}</span>
+      <form method="post" action="{% url 'sair' %}">{% csrf_token %}
+        <button type="submit" class="botao-sair">Sair</button>
+      </form>
+    </div>
+  </aside>
+  <main class="conteudo">
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>
