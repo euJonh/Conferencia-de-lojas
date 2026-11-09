@@ -79,6 +79,33 @@ class ConfiguracoesTests(TestCase):
         self.assertTrue(any("Nenhuma loja válida" in t for t in self.textos(resp)))
         self.assertEqual(Configuracao.atual().lojas_texto, "20-256")
 
+    def test_lojas_com_linhas_invalidas_recusadas(self):
+        self.postar("configuracoes_lojas", {"lojas_texto": "20-256"})
+        antes = Alteracao.objects.count()
+        resp = self.postar("configuracoes_lojas", {"lojas_texto": "20-073\nabc\n\n20-100\n20-xx"})
+        msg = "\n".join(self.textos(resp))
+        self.assertIn("linha 2: abc", msg)
+        self.assertIn("linha 5: 20-xx", msg)
+        self.assertEqual(Configuracao.atual().lojas_texto, "20-256")
+        self.assertEqual(Alteracao.objects.count(), antes)
+
+    def test_lojas_muitas_linhas_invalidas(self):
+        texto = "20-256\n" + "\n".join(f"ruim{n}" for n in range(13))
+        resp = self.postar("configuracoes_lojas", {"lojas_texto": texto})
+        msg = "\n".join(self.textos(resp))
+        self.assertIn("linha 11: ruim9", msg)
+        self.assertNotIn("ruim10", msg)
+        self.assertIn("... e mais 3", msg)
+
+    def test_data_dos_precos_nao_muda_com_outras_alteracoes(self):
+        self.postar("configuracoes_precos", {"precos": SimpleUploadedFile("p.xlsx", planilha_precos())})
+        antes = Configuracao.atual().precos_em
+        self.assertIsNotNone(antes)
+        self.postar("configuracoes_lojas", {"lojas_texto": "20-256"})
+        self.assertEqual(Configuracao.atual().precos_em, antes)
+        self.postar("configuracoes_precos_remover", {})
+        self.assertIsNone(Configuracao.atual().precos_em)
+
     def test_trocar_modelo(self):
         arq = SimpleUploadedFile("modelo novo.xlsx", modelo_valido())
         resp = self.postar("configuracoes_modelo", {"modelo": arq})

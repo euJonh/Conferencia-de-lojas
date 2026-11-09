@@ -23,6 +23,7 @@ class Configuracao(models.Model):
     precos = models.BinaryField(null=True, blank=True)
     precos_nome = models.CharField(max_length=255, blank=True, default="")
     precos_qtd = models.IntegerField(default=0)
+    precos_em = models.DateTimeField(null=True, blank=True)
     lojas_por_arquivo = models.PositiveIntegerField(default=7)
     atualizado_em = models.DateTimeField(auto_now=True)
     atualizado_por = models.ForeignKey(

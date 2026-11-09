@@ -30,7 +30,7 @@
 <section class="cartao bloco">
   <h2>Planilha de preços</h2>
   {% if cfg.precos_nome %}
-  <p>{{ cfg.precos_nome }} · {{ cfg.precos_qtd }} produto{{ cfg.precos_qtd|pluralize }} · {{ cfg.atualizado_em|date:"d/m/Y H:i" }}</p>
+  <p>{{ cfg.precos_nome }} · {{ cfg.precos_qtd }} produto{{ cfg.precos_qtd|pluralize }} · {{ cfg.precos_em|date:"d/m/Y H:i" }}</p>
   {% else %}
   <p class="suave">Nenhuma planilha de preços: a coluna D (PRC.VEN) fica vazia.</p>
   {% endif %}

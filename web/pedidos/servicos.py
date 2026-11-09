@@ -4,10 +4,12 @@ import logging
 import zipfile
 
 from django.db import transaction
+from django.utils import timezone
 from django.http import JsonResponse
 
 import conferencia as c
-from conferencia import ErroConferencia, ler_lojas_texto, ler_precos_bytes, validar_modelo
+from conferencia import (PADRAO_LINHA_LOJAS, ErroConferencia, ler_lojas_texto, ler_precos_bytes,
+                         validar_modelo)
 
 from .models import Alteracao, Configuracao
 
@@ -46,8 +48,23 @@ def _gravar(usuario, descricao: str, **campos) -> None:
         Alteracao.objects.create(usuario=usuario, descricao=descricao[:300])
 
 
+MAX_LINHAS_INVALIDAS = 10
+
+
+def _linhas_fora_do_formato(texto: str) -> list[str]:
+    return [f"linha {n}: {linha.strip()}" for n, linha in enumerate(texto.splitlines(), start=1)
+            if linha.strip() and not PADRAO_LINHA_LOJAS.match(linha.strip())]
+
+
 def salvar_lojas(texto: str, usuario) -> int:
     qtd = len(ler_lojas_texto(texto))
+    ruins = _linhas_fora_do_formato(texto)
+    if ruins:
+        msg = "Linhas fora do formato (corrija e salve de novo):\n" + "\n".join(
+            ruins[:MAX_LINHAS_INVALIDAS])
+        if len(ruins) > MAX_LINHAS_INVALIDAS:
+            msg += f"\n... e mais {len(ruins) - MAX_LINHAS_INVALIDAS}"
+        raise ErroConferencia(msg)
     _gravar(usuario, f"alterou a lista de lojas ({qtd} lojas)", lojas_texto=texto)
     return qtd
 
@@ -60,12 +77,14 @@ def salvar_modelo(nome: str, dados: bytes, usuario) -> None:
 def salvar_precos(nome: str, dados: bytes, usuario) -> int:
     qtd = len(ler_precos_bytes(dados))
     _gravar(usuario, f"trocou a planilha de preços para {nome} ({qtd} produtos)",
-            precos=dados, precos_nome=nome, precos_qtd=qtd)
+            precos=dados, precos_nome=nome, precos_qtd=qtd,
+            precos_em=timezone.now())
     return qtd
 
 
 def remover_precos(usuario) -> None:
-    _gravar(usuario, "removeu a planilha de preços", precos=None, precos_nome="", precos_qtd=0)
+    _gravar(usuario, "removeu a planilha de preços", precos=None, precos_nome="", precos_qtd=0,
+            precos_em=None)
 
 
 def salvar_lojas_por_arquivo(valor: int, usuario) -> None:
