@@ -78,7 +78,7 @@ function enviar(url, formData, aoConcluir, painel) {
         mostrarErro(painel, MSG_ERRO_INESPERADO, false, false);
         return;
       }
-      var resultado = {blob: xhr.response, nome: nomeDoCabecalho(xhr, "planilha.xlsx"), resumo: resumo};
+      var resultado = {blob: xhr.response, nome: nomeDoCabecalho(xhr, "planilhas.zip"), resumo: resumo};
       baixar(resultado.blob, resultado.nome);
       aoConcluir(resultado);
       return;
@@ -122,6 +122,25 @@ function mostrarResumoUm(painel, resultado, aoBaixar) {
   pares.forEach(function (p) {
     dl.appendChild(el("dt", "", p[0]));
     dl.appendChild(el("dd", "", p[1]));
+  });
+  painel.appendChild(dl);
+  var botao = el("button", "botao", "Baixar novamente");
+  botao.type = "button";
+  botao.addEventListener("click", aoBaixar);
+  painel.appendChild(botao);
+}
+
+/* Painel verde da tela Gerar em lote. */
+function mostrarResumoLote(painel, resultado, aoBaixar) {
+  var r = resultado.resumo;
+  var n = r.arquivos.length;
+  painelMostrar(painel, "sucesso", "Planilhas geradas!",
+    r.planilhas + " planilhas lidas · " + r.linhas + " linhas · " + n + " arquivo" + (n > 1 ? "s" : "") +
+    " (nº do arquivo, lojas · linhas)\nPreços: " + textoPrecos(r));
+  var dl = el("dl", "resumo");
+  r.arquivos.forEach(function (a, i) {
+    dl.appendChild(el("dt", "", "(" + (i + 1) + ")"));
+    dl.appendChild(el("dd", "", a.lojas + " · " + a.linhas));
   });
   painel.appendChild(dl);
   var botao = el("button", "botao", "Baixar novamente");

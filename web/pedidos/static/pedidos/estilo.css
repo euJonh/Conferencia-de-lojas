@@ -37,3 +37,8 @@ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--fundo
 .resumo dt{color:var(--suave)}
 .resumo dd{margin:0;overflow-wrap:anywhere}
 .zona.ocupada{opacity:.6;pointer-events:none}
+.lista-lote{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.lista-lote .link{background:none;border:0;color:var(--destaque);cursor:pointer;padding:0 6px;font:inherit;text-decoration:underline}
+.acoes-lote{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+.botao.secundario{background:transparent;color:var(--destaque);border:1px solid var(--borda)}
+.painel-texto{white-space:pre-line}

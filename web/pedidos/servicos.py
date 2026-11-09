@@ -1,5 +1,7 @@
 """Leitura e gravação da configuração compartilhada e geração da planilha."""
+import io
 import logging
+import zipfile
 
 from django.db import transaction
 from django.http import JsonResponse
@@ -91,6 +93,30 @@ def gerar_um(nome: str, dados: bytes) -> tuple[bytes, dict]:
         "tem_precos": precos is not None,
     }
     return saida, resumo
+
+
+def _faixa(lojas) -> str:
+    """"20-050 a 20-059"; com uma loja só, apenas o código."""
+    return f"{lojas[0].codigo} a {lojas[-1].codigo}" if len(lojas) > 1 else lojas[0].codigo
+
+
+def gerar_lote(planilhas: list[tuple[str, bytes]]) -> tuple[bytes, dict]:
+    """Junta várias planilhas de pedido e devolve (.zip em memória, resumo)."""
+    lojas, modelo, precos, por_arquivo = carregar()
+    r = c.processar_lote_bytes(planilhas, lojas, modelo, precos, tamanho_grupo=por_arquivo)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for n, arq in enumerate(r.arquivos, start=1):
+            zf.writestr(c.nome_saida_lote(n), arq.dados)
+    resumo = {
+        "planilhas": len(r.planilhas),
+        "linhas": sum(len(a.itens) for a in r.arquivos),
+        "arquivos": [{"nome": c.nome_saida_lote(n), "lojas": _faixa(a.lojas), "linhas": len(a.itens)}
+                     for n, a in enumerate(r.arquivos, start=1)],
+        "sem_preco": list(r.sem_preco),
+        "tem_precos": precos is not None,
+    }
+    return buf.getvalue(), resumo
 
 
 def resposta_erro(erro: Exception) -> JsonResponse:

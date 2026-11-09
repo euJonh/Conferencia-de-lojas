@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from functools import wraps
 
+from django.core.exceptions import TooManyFilesSent
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -69,6 +70,8 @@ def inicio(request):
     return render(request, "pedidos/inicio.html", {"config_ok": config_ok})
 
 
+MAX_PLANILHAS = 30
+MSG_MUITAS = f"Envie no máximo {MAX_PLANILHAS} planilhas por vez."
 MSG_SESSAO_EXPIRADA = "Sua sessão expirou. Entre novamente."
 
 
@@ -96,5 +99,49 @@ def gerar(request):
     resposta = HttpResponse(
         saida, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     resposta["Content-Disposition"] = f'attachment; filename="{NOME_SAIDA}"'
+    resposta["X-Resumo"] = json.dumps(resumo, ensure_ascii=True)
+    return resposta
+
+
+@login_required
+def lote(request):
+    """Tela Gerar em lote: várias planilhas viram um .zip."""
+    por_arquivo = 0
+    try:
+        por_arquivo = servicos.carregar()[3]
+        config_ok = True
+    except servicos.ConfigIncompleta:
+        config_ok = False
+    return render(request, "pedidos/lote.html", {
+        "config_ok": config_ok, "max_planilhas": MAX_PLANILHAS, "por_arquivo": por_arquivo,
+        "plural": por_arquivo > 1})
+
+
+@require_POST
+@login_required_json
+def gerar_lote(request):
+    """Recebe `planilhas` (várias) e devolve um .zip, com o resumo em X-Resumo."""
+    try:
+        try:
+            arquivos = request.FILES.getlist("planilhas")
+        except TooManyFilesSent:
+            raise ErroConferencia(MSG_MUITAS) from None
+        if not arquivos:
+            raise ErroConferencia("Nenhuma planilha anexada.")
+        if len(arquivos) > MAX_PLANILHAS:
+            raise ErroConferencia(MSG_MUITAS)
+        planilhas = []
+        for arquivo in arquivos:
+            try:
+                planilhas.append((arquivo.name, checar_xlsx(arquivo)))
+            except ErroConferencia as e:
+                if arquivo.name in str(e):
+                    raise
+                raise ErroConferencia(f"Problema na planilha {arquivo.name}:\n\n{e}") from None
+        saida, resumo = servicos.gerar_lote(planilhas)
+    except Exception as e:
+        return servicos.resposta_erro(e)
+    resposta = HttpResponse(saida, content_type="application/zip")
+    resposta["Content-Disposition"] = 'attachment; filename="PLANILHAS DE PEDIDOS.zip"'
     resposta["X-Resumo"] = json.dumps(resumo, ensure_ascii=True)
     return resposta

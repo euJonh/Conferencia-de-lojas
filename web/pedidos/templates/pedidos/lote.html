@@ -1,0 +1,111 @@
+{% extends "pedidos/base.html" %}
+{% load static %}
+{% block titulo %}Gerar em lote{% endblock %}
+{% block conteudo %}
+<h1 class="titulo-tela">Gerar em lote</h1>
+{% if config_ok %}
+<p class="suave">Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>
+
+<form id="form-lote" class="cartao anexo" data-url="{% url 'gerar_lote' %}" data-max="{{ max_planilhas }}">{% csrf_token %}
+  <div id="zona" class="zona" tabindex="0">
+    <strong id="qtd-lote">Planilhas anexadas (0)</strong>
+    <span class="suave">Arraste os arquivos .xlsx para cá ou use o botão (até {{ max_planilhas }} por vez).</span>
+    <label class="botao">Adicionar planilhas
+      <input id="arquivo" type="file" accept=".xlsx" multiple hidden>
+    </label>
+  </div>
+  <ul id="lista-lote" class="lista-lote"></ul>
+  <div class="acoes-lote">
+    <button id="limpar" type="button" class="botao secundario">Limpar</button>
+    <button id="gerar" type="button" class="botao">Gerar em lote</button>
+  </div>
+</form>
+{% else %}
+<div class="cartao aviso">
+  <strong>Configuração incompleta.</strong>
+  <p>Cadastre a lista de lojas e o modelo em <a href="/configuracoes">Configurações</a> antes de gerar planilhas.</p>
+</div>
+{% endif %}
+
+{% if config_ok %}
+<section id="painel" class="cartao painel" aria-live="polite">
+  <div class="painel-titulo">Nenhuma planilha anexada</div>
+  <div class="suave painel-texto">Clique em "Adicionar planilhas" e escolha um ou mais arquivos.</div>
+</section>
+<script src="{% static 'pedidos/app.js' %}"></script>
+<script>
+  (function () {
+    var form = document.getElementById("form-lote");
+    var painel = document.getElementById("painel");
+    var lista = document.getElementById("lista-lote");
+    var qtd = document.getElementById("qtd-lote");
+    var max = parseInt(form.dataset.max, 10);
+    var arquivos = [];
+
+    function mostrarOcioso() {
+      var n = arquivos.length;
+      if (n) {
+        painelMostrar(painel, "", n + " planilha" + (n > 1 ? "s" : "") + " pronta" + (n > 1 ? "s" : ""),
+                      'Clique em "Gerar em lote" para criar os arquivos.');
+      } else {
+        painelMostrar(painel, "", "Nenhuma planilha anexada",
+                      'Clique em "Adicionar planilhas" e escolha um ou mais arquivos.');
+      }
+    }
+
+    function desenhar() {
+      lista.replaceChildren();
+      arquivos.forEach(function (arq, i) {
+        var li = el("li", "", arq.name + " ");
+        var b = el("button", "link", "Remover");
+        b.type = "button";
+        b.addEventListener("click", function () {
+          if (envioPendente) return;
+          arquivos.splice(i, 1);
+          desenhar();
+        });
+        li.appendChild(b);
+        lista.appendChild(li);
+      });
+      qtd.textContent = "Planilhas anexadas (" + arquivos.length + ")";
+      document.getElementById("gerar").disabled = !arquivos.length;
+      mostrarOcioso();
+    }
+
+    function adicionar(novos) {
+      var chave = function (f) { return f.name + "|" + f.size + "|" + f.lastModified; };
+      var ja = {};
+      arquivos.forEach(function (f) { ja[chave(f)] = true; });
+      novos.forEach(function (f) {
+        if (!ja[chave(f)]) { arquivos.push(f); ja[chave(f)] = true; }  /* a mesma planilha não entra duas vezes */
+      });
+      desenhar();
+      if (arquivos.length > max) {
+        mostrarErro(painel, "Envie no máximo " + max + " planilhas por vez. Remova algumas da lista.", false, false);
+      }
+    }
+
+    document.getElementById("limpar").addEventListener("click", function () {
+      if (envioPendente) return;
+      arquivos = [];
+      desenhar();
+    });
+
+    document.getElementById("gerar").addEventListener("click", function () {
+      if (envioPendente || !arquivos.length) return;
+      if (arquivos.length > max) {
+        mostrarErro(painel, "Envie no máximo " + max + " planilhas por vez. Remova algumas da lista.", false, false);
+        return;
+      }
+      var dados = new FormData();
+      arquivos.forEach(function (f) { dados.append("planilhas", f); });
+      enviar(form.dataset.url, dados, function (resultado) {
+        mostrarResumoLote(painel, resultado, function () { baixar(resultado.blob, resultado.nome); });
+      }, painel);
+    });
+
+    zonaArrastar(document.getElementById("zona"), document.getElementById("arquivo"), adicionar, true);
+    desenhar();
+  })();
+</script>{% endif %}
+{% endblock %}
