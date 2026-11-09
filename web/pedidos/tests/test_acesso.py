@@ -68,3 +68,51 @@ class AcessoTests(TestCase):
         r = self.client.post("/sair")
         self.assertRedirects(r, "/entrar", fetch_redirect_response=False)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class AdminETests(TestCase):
+    def test_staff_nao_superusuario_fora_do_admin(self):
+        User.objects.create_user("func", password=SENHA, is_staff=True)
+        self.client.login(username="func", password=SENHA)
+        r = self.client.get("/admin/")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r["Location"].startswith("/admin/login/"))
+
+    def test_anonimo_fora_do_admin(self):
+        r = self.client.get("/admin/")
+        self.assertTrue(r["Location"].startswith("/admin/login/"))
+
+    def test_superusuario_entra_no_admin(self):
+        User.objects.create_superuser("chefe", password=SENHA)
+        self.client.login(username="chefe", password=SENHA)
+        self.assertEqual(self.client.get("/admin/").status_code, 200)
+
+    def test_login_do_admin_tambem_bloqueia(self):
+        User.objects.create_superuser("chefe", password=SENHA)
+        for _ in range(5):
+            self.client.post("/admin/login/", {"username": "chefe", "password": "x"})
+        r = self.client.post("/admin/login/", {"username": "chefe", "password": SENHA})
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(TentativaLogin.objects.get(usuario="chefe").falhas, 5)
+
+
+class DebugPadraoTests(TestCase):
+    def _settings(self, **env):
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+        web = Path(__file__).resolve().parents[2]
+        e = {k: v for k, v in os.environ.items() if k not in ("DEBUG", "SECRET_KEY")}
+        e.update(env, DJANGO_SETTINGS_MODULE="site_conferencia.settings", PYTHONPATH=str(web))
+        return subprocess.run(
+            [sys.executable, "-c", "from django.conf import settings; print(settings.DEBUG)"],
+            env=e, capture_output=True, text=True)
+
+    def test_sem_variavel_debug_e_falso_e_exige_secret_key(self):
+        r = self._settings()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("SECRET_KEY", r.stderr)
+        r = self._settings(SECRET_KEY="x", ALLOWED_HOSTS="a")
+        self.assertEqual(r.stdout.strip(), "False")

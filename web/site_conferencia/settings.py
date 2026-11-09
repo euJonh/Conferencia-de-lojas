@@ -12,7 +12,7 @@ RAIZ = BASE_DIR.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-DEBUG = os.environ.get("DEBUG", "True").strip().lower() in ("1", "true", "sim", "yes")
+DEBUG = os.environ.get("DEBUG", "False").strip().lower() in ("1", "true", "sim", "yes")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
 if not SECRET_KEY:
@@ -26,7 +26,7 @@ if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    "pedidos.apps_admin.AdminSomenteSuperusuario",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "pedidos",
 ]
+
+AUTHENTICATION_BACKENDS = ["pedidos.autenticacao.BackendComBloqueio"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

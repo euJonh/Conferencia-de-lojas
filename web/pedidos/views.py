@@ -1,18 +1,13 @@
 """Telas do app: login, logout e página inicial provisória."""
-from datetime import timedelta
-
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .models import TentativaLogin
+from .autenticacao import MINUTOS_BLOQUEIO, bloqueado
 
-MAX_FALHAS = 5
-MINUTOS_BLOQUEIO = 15
 MSG_ERRO = "Usuário ou senha incorretos."
 MSG_BLOQUEIO = f"Muitas tentativas. Tente novamente em {MINUTOS_BLOQUEIO} minutos."
 
@@ -35,25 +30,13 @@ def entrar(request):
     if request.method == "POST":
         nome = request.POST.get("username", "").strip()
         senha = request.POST.get("password", "")
-        agora = timezone.now()
-        tentativa, _ = TentativaLogin.objects.get_or_create(usuario=nome[:150])
-        if tentativa.bloqueado_ate and tentativa.bloqueado_ate > agora:
+        if bloqueado(nome):
             erro = MSG_BLOQUEIO
         else:
-            if tentativa.bloqueado_ate:  # bloqueio vencido: recomeça do zero
-                tentativa.falhas = 0
-                tentativa.bloqueado_ate = None
             usuario = authenticate(request, username=nome, password=senha)
             if usuario is not None:
-                tentativa.falhas = 0
-                tentativa.bloqueado_ate = None
-                tentativa.save()
                 login(request, usuario)
                 return redirect(_destino(request))
-            tentativa.falhas += 1
-            if tentativa.falhas >= MAX_FALHAS:
-                tentativa.bloqueado_ate = agora + timedelta(minutes=MINUTOS_BLOQUEIO)
-            tentativa.save()
             erro = MSG_ERRO
     return render(request, "pedidos/entrar.html", {
         "erro": erro, "next": request.GET.get("next", request.POST.get("next", ""))})
