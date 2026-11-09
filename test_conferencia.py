@@ -3,6 +3,7 @@
 Rodar: python -m unittest test_conferencia -v
 """
 
+import io
 import tempfile
 import unittest
 import zipfile
@@ -307,6 +308,50 @@ class TesteConferencia(unittest.TestCase):
         wb.save(vazia)
         with self.assertRaises(c.ErroConferencia):
             c.ler_cabecalhos(vazia)
+
+    def test_processar_bytes_igual_ao_de_disco(self):
+        destino, r_disco = c.processar(self.pedido, self.lojas, self.modelo)
+        dados, r_mem = c.processar_bytes(self.pedido.name, self.pedido.read_bytes(),
+                                         c.ler_lojas(self.lojas), self.modelo.read_bytes())
+        self.assertEqual(dados, destino.read_bytes())
+        self.assertEqual(r_mem.pedidos, r_disco.pedidos)
+        self.assertEqual(r_mem.marca, "Drunk Elephant")
+
+    @unittest.skipUnless(MODELO_REAL.is_file(), "modelo real não está na pasta")
+    def test_bytes_com_modelo_real_mantem_listas_suspensas(self):
+        dados, _ = c.processar_bytes(self.pedido.name, self.pedido.read_bytes(),
+                                     c.ler_lojas(self.lojas), MODELO_REAL.read_bytes())
+        with zipfile.ZipFile(io.BytesIO(dados)) as z:
+            self.assertIn("x14:dataValidation", z.read("xl/worksheets/sheet1.xml").decode())
+
+    def test_lote_bytes(self):
+        r = c.processar_lote_bytes([(self.pedido.name, self.pedido.read_bytes())],
+                                   c.ler_lojas(self.lojas), self.modelo.read_bytes(), tamanho_grupo=1)
+        self.assertEqual([a.nome for a in r.arquivos],
+                         ["PLANILHA DE PEDIDOS - (1).xlsx", "PLANILHA DE PEDIDOS - (2).xlsx"])
+        self.assertTrue(all(a.dados.startswith(b"PK") and a.destino is None for a in r.arquivos))
+        self.assertEqual(r.planilhas[0][0], self.pedido.name)
+
+    def test_ler_lojas_texto_e_decodificar(self):
+        texto = c.decodificar_texto("\ufeff20-256 LOJA\r\n20-073 São Paulo\r\n".encode("utf-8"))
+        self.assertEqual([l.codigo for l in c.ler_lojas_texto(texto).values()], ["20-256", "20-073"])
+        self.assertEqual(c.decodificar_texto("20-073 São".encode("latin-1")), "20-073 São")
+        with self.assertRaises(c.ErroConferencia):
+            c.ler_lojas_texto("sem lojas aqui")
+
+    @unittest.skipUnless(MODELO_REAL.is_file(), "modelo real não está na pasta")
+    def test_validar_modelo(self):
+        c.validar_modelo(MODELO_REAL.read_bytes())
+        with self.assertRaises(c.ErroConferencia):
+            c.validar_modelo(b"nao e zip")
+        sem_pedido = self.pasta / "x.xlsx"
+        criar_pedido(sem_pedido)  # aba "Sheet", sem PEDIDO
+        with self.assertRaises(c.ErroConferencia):
+            c.validar_modelo(sem_pedido.read_bytes())
+
+    def test_planilha_bytes_corrompida(self):
+        with self.assertRaises(c.ErroConferencia):
+            c.processar_bytes("Pedido_NARS_x.xlsx", b"nao e zip", c.ler_lojas(self.lojas), self.modelo.read_bytes())
 
 
 if __name__ == "__main__":
