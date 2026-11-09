@@ -179,6 +179,71 @@ python conferencia.py
 python -m unittest test_conferencia -v
 ```
 
+## Versão web
+
+Além do aplicativo Windows, o repositório tem um site (Django, pasta `web/`) que faz a
+mesma conferência e geração pelo navegador, com login. Ele usa o mesmo `conferencia.py`,
+o `lojas.txt` e o modelo `PLANILHA DE PEDIDOS.xlsx` da raiz, então as regras e a planilha
+gerada são as mesmas do `.exe`. Fica no branch `web`.
+
+| O quê | Para quê | Onde é usado |
+|---|---|---|
+| [Django](https://www.djangoproject.com/) 5.2 | Site, login, administração de usuários | `web/` |
+| [PostgreSQL](https://www.postgresql.org/) (`psycopg`) | Banco em produção; localmente usa SQLite | `DATABASE_URL` |
+| [dj-database-url](https://github.com/jazzband/dj-database-url) | Ler `DATABASE_URL` | `web/site_conferencia/settings.py` |
+| [gunicorn](https://gunicorn.org/) | Servidor de produção | `render.yaml` |
+| [WhiteNoise](https://whitenoise.readthedocs.io/) | Servir os arquivos estáticos | `web/site_conferencia/settings.py` |
+
+As dependências estão em [`requirements-web.txt`](requirements-web.txt).
+
+### Rodar localmente
+
+```bat
+python -m pip install -r requirements-web.txt
+python web/manage.py migrate
+python web/manage.py createsuperuser
+python web/manage.py runserver
+```
+
+Abra http://127.0.0.1:8000. Localmente o `manage.py` liga o modo de desenvolvimento
+(`DEBUG=1`) e usa um banco SQLite (`web/db.sqlite3`). Testes:
+
+```bat
+python web/manage.py test pedidos
+```
+
+### Variáveis de ambiente
+
+| Variável | Para quê |
+|---|---|
+| `SECRET_KEY` | Obrigatória em produção (o Render gera sozinho). |
+| `DEBUG` | `False` por padrão; `manage.py` define `1` só para uso local. |
+| `ALLOWED_HOSTS` | Domínios aceitos, separados por vírgula (`.onrender.com`). |
+| `DATABASE_URL` | Banco PostgreSQL (o Render preenche a partir do `conferencia-db`). |
+
+### Publicar no Render
+
+O arquivo [`render.yaml`](render.yaml) é um Blueprint: banco `conferencia-db`
+(PostgreSQL, plano pago `basic-256mb`, porque o plano gratuito do Render expira) e o
+serviço web `conferencia-lojas` (plano `starter`, branch `web`).
+
+1. No Render, **New > Blueprint**, escolha este repositório e o branch `web`.
+2. Confirme a criação. O build roda `web/build.sh` (instala as dependências e roda o
+   `collectstatic`) e, a cada início, o serviço aplica as migrações.
+3. Quando o deploy terminar, abra o **Shell** do serviço e crie o primeiro administrador:
+   ```sh
+   cd web && python manage.py createsuperuser
+   ```
+4. Entre no site, abra `/admin` e cadastre os usuários que vão usar o sistema.
+5. Em **Configurações**, anexe a planilha de preços (`CODIGO` na coluna A e
+   `VALOR UNITARIO` na coluna K).
+
+O site só responde em HTTPS (redirecionamento, cookies seguros e HSTS de 1 ano).
+`python web/manage.py check --deploy` mostra apenas dois avisos, deixados de propósito:
+`SECURE_HSTS_INCLUDE_SUBDOMAINS` e `SECURE_HSTS_PRELOAD`. O domínio `onrender.com` não
+é nosso, então não faz sentido forçar HSTS nos subdomínios nem entrar na lista de
+pré-carregamento dos navegadores. Com um domínio próprio, dá para ligar os dois.
+
 ## Licença
 
 MIT. Veja [LICENSE](LICENSE).
