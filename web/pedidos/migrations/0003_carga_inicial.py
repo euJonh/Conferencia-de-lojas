@@ -13,9 +13,7 @@ def carregar(apps, schema_editor):
     modelo = settings.RAIZ / "PLANILHA DE PEDIDOS.xlsx"
     Configuracao.objects.create(
         pk=1,
-        lojas_texto=decodificar_texto(lojas.read_bytes()).replace("
-", "
-") if lojas.exists() else "",
+        lojas_texto=decodificar_texto(lojas.read_bytes()).replace("\r\n", "\n") if lojas.exists() else "",
         modelo=modelo.read_bytes() if modelo.exists() else b"",
         modelo_nome=modelo.name if modelo.exists() else "",
     )
