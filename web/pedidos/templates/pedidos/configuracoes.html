@@ -1,0 +1,81 @@
+{% extends "pedidos/base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<header class="cabecalho">
+  <h1 class="titulo-tela">Configurações</h1>
+  <p class="suave">Valem para todos os usuários.</p>
+</header>
+
+<section class="cartao bloco">
+  <h2><span class="h2-icone">1</span>Lista de lojas</h2>
+  <p class="suave">{{ qtd_lojas }} loja{{ qtd_lojas|pluralize }} válida{{ qtd_lojas|pluralize }}. Uma por linha: 20-256 ou 20-256 LOJA MOOCA (SP).</p>
+  <form method="post" action="{% url 'configuracoes_lojas' %}" enctype="multipart/form-data">{% csrf_token %}
+    <textarea name="lojas_texto" rows="10" class="campo-texto">{{ lojas_texto }}</textarea>
+    <div class="linha-acoes">
+      <label class="suave">Ou importe um arquivo .txt (vale no lugar do texto acima):
+        <input type="file" name="lojas_arquivo" accept=".txt">
+      </label>
+      <button type="submit" class="botao">Salvar lojas</button>
+    </div>
+  </form>
+</section>
+
+<section class="cartao bloco">
+  <h2><span class="h2-icone">2</span>Modelo da planilha</h2>
+  <p>{% if cfg.modelo_nome %}<span class="arquivo-atual">{{ cfg.modelo_nome }}</span>{% else %}<span class="suave">Nenhum modelo cadastrado.</span>{% endif %}</p>
+  <form method="post" action="{% url 'configuracoes_modelo' %}" enctype="multipart/form-data" class="linha-acoes">{% csrf_token %}
+    <input type="file" name="modelo" accept=".xlsx" required>
+    <button type="submit" class="botao">Trocar modelo</button>
+  </form>
+</section>
+
+<section class="cartao bloco">
+  <h2><span class="h2-icone">3</span>Planilha de preços</h2>
+  {% if cfg.precos_nome %}
+  <p><span class="arquivo-atual">{{ cfg.precos_nome }}</span> · {{ cfg.precos_qtd }} produto{{ cfg.precos_qtd|pluralize }} · {{ cfg.precos_em|date:"d/m/Y H:i" }}</p>
+  {% else %}
+  <p class="suave">Nenhuma planilha de preços: a coluna D (PRC.VEN) fica vazia.</p>
+  {% endif %}
+  <form method="post" action="{% url 'configuracoes_precos' %}" enctype="multipart/form-data" class="linha-acoes">{% csrf_token %}
+    <input type="file" name="precos" accept=".xlsx" required>
+    <button type="submit" class="botao">Trocar preços</button>
+  </form>
+  {% if cfg.precos_nome %}
+  <form method="post" action="{% url 'configuracoes_precos_remover' %}" class="linha-acoes">{% csrf_token %}
+    <button type="submit" class="botao secundario">Remover preços</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="cartao bloco">
+  <h2><span class="h2-icone">4</span>Lojas por arquivo</h2>
+  <p class="suave">No Gerar em lote, cada arquivo de saída recebe este número de lojas.</p>
+  <div class="linha-acoes">
+    <form method="post" action="{% url 'configuracoes_lojas_por_arquivo' %}">{% csrf_token %}
+      <input type="hidden" name="valor" value="{{ cfg.lojas_por_arquivo|add:'-1' }}">
+      <button type="submit" class="botao secundario" aria-label="Diminuir"{% if cfg.lojas_por_arquivo <= 1 %} disabled{% endif %}>−</button>
+    </form>
+    <strong class="valor">{{ cfg.lojas_por_arquivo }}</strong>
+    <form method="post" action="{% url 'configuracoes_lojas_por_arquivo' %}">{% csrf_token %}
+      <input type="hidden" name="valor" value="{{ cfg.lojas_por_arquivo|add:'1' }}">
+      <button type="submit" class="botao secundario" aria-label="Aumentar">+</button>
+    </form>
+    <form method="post" action="{% url 'configuracoes_lojas_por_arquivo' %}" class="linha-acoes">{% csrf_token %}
+      <input type="number" name="valor" value="{{ cfg.lojas_por_arquivo }}" min="1" class="campo-numero">
+      <button type="submit" class="botao secundario">Definir</button>
+    </form>
+  </div>
+</section>
+
+<section class="cartao bloco">
+  <h2>Histórico de alterações</h2>
+  {% if historico %}
+  <ul class="historico">
+    {% for a in historico %}<li><time>{{ a.quando|date:"d/m H:i" }}</time><strong>{{ a.usuario.get_username|default:"(removido)" }}</strong><span>{{ a.descricao }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="suave">Nenhuma alteração ainda.</p>
+  {% endif %}
+</section>
+{% endblock %}

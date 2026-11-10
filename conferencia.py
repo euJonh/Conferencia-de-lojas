@@ -17,6 +17,7 @@ Em lote (processar_lote), várias planilhas são juntadas e divididas em arquivo
 
 from __future__ import annotations
 
+import io
 import re
 import sys
 import zipfile
@@ -116,11 +117,18 @@ def ler_lojas(caminho: Path) -> dict[tuple[int, int], Loja]:
             f"Coloque o {NOME_LOJAS_TXT} na mesma pasta do programa:\n{caminho.parent}"
         )
 
-    try:
-        texto = caminho.read_text(encoding="utf-8-sig")
-    except UnicodeDecodeError:
-        texto = caminho.read_text(encoding="latin-1")
+    return ler_lojas_texto(decodificar_texto(caminho.read_bytes()))
 
+
+def decodificar_texto(dados: bytes) -> str:
+    """UTF-8 (com ou sem BOM); se não for, Latin-1."""
+    try:
+        return dados.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return dados.decode("latin-1")
+
+
+def ler_lojas_texto(texto: str) -> dict[tuple[int, int], Loja]:
     lojas: dict[tuple[int, int], Loja] = {}
     for linha in texto.splitlines():
         linha = linha.strip()
@@ -145,20 +153,24 @@ def ler_lojas(caminho: Path) -> dict[tuple[int, int], Loja]:
 # Leitura da planilha
 # ---------------------------------------------------------------------------
 
-def ler_planilha(caminho: Path) -> dict[str, list[tuple]]:
+MSG_PLANILHA_CORROMPIDA = (
+    "Não foi possível ler a planilha. O arquivo pode estar corrompido "
+    "ou não ser um .xlsx válido."
+)
+
+
+def ler_planilha(origem: Path | bytes) -> dict[str, list[tuple]]:
     """Retorna {aba: [linha1, linha2, ...]} com os valores de todas as linhas."""
     try:
-        wb = load_workbook(caminho, read_only=True, data_only=True)
+        wb = load_workbook(io.BytesIO(origem) if isinstance(origem, bytes) else origem,
+                           read_only=True, data_only=True)
     except PermissionError:
         raise ErroConferencia(
             "Não foi possível abrir a planilha porque ela está em uso.\n\n"
             "Feche o arquivo no Excel (ou em outro programa) e tente novamente."
         )
     except (InvalidFileException, zipfile.BadZipFile, KeyError, OSError, ValueError):
-        raise ErroConferencia(
-            "Não foi possível ler a planilha. O arquivo pode estar corrompido "
-            "ou não ser um .xlsx válido."
-        )
+        raise ErroConferencia(MSG_PLANILHA_CORROMPIDA)
 
     try:
         return {ws.title: list(ws.iter_rows(values_only=True)) for ws in wb.worksheets}
@@ -209,7 +221,14 @@ def ler_precos(caminho: Path) -> dict[str, float]:
             f"Planilha de preços não encontrada:\n{caminho}\n\n"
             "Anexe a planilha de preços novamente em Configurações."
         )
-    linhas_por_aba = ler_planilha(caminho)
+    return _precos_das_linhas(ler_planilha(caminho))
+
+
+def ler_precos_bytes(dados: bytes) -> dict[str, float]:
+    return _precos_das_linhas(ler_planilha(dados))
+
+
+def _precos_das_linhas(linhas_por_aba: dict[str, list[tuple]]) -> dict[str, float]:
     for linhas in linhas_por_aba.values():
         if not linhas:
             continue
@@ -351,14 +370,15 @@ PADRAO_CELULA_XML = re.compile(r'<c\b[^>]*?\br="([A-Z]+)\d+"[^>]*?(?:/>|>.*?</c>
 PADRAO_ESTILO = re.compile(r'\bs="(\d+)"')
 
 
-def extrair_marca(planilha: Path) -> str:
-    """'Pedido_NARS_2026-09-04..2026-10-03.xlsx' -> 'NARS'."""
-    m = PADRAO_NOME_PLANILHA.match(planilha.stem)
+def extrair_marca(planilha: Path | str) -> str:
+    """'Pedido_NARS_2026-09-04..2026-10-03.xlsx' -> 'NARS'. Aceita o caminho ou só o nome do arquivo."""
+    nome = planilha if isinstance(planilha, str) else planilha.name
+    m = PADRAO_NOME_PLANILHA.match(Path(nome).stem)
     marca = m.group(1).strip() if m else ""
     if not marca:
         raise ErroConferencia(
             "Não foi possível identificar a marca pelo nome da planilha.\n\n"
-            f"Nome recebido: {planilha.name}\n"
+            f"Nome recebido: {nome}\n"
             "Formato esperado: Pedido_NOME DA MARCA_....xlsx"
         )
     return marca
@@ -488,19 +508,22 @@ def _ampliar_intervalo(xml: str, padrao: str, ultima: int) -> str:
     return re.sub(padrao, lambda m: f"{m.group(1)}{max(int(m.group(2)), ultima)}", xml)
 
 
-def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
-                           modelo: Path, destino: Path, precos: dict[str, float] | None = None) -> None:
-    if not modelo.is_file():
-        raise ErroConferencia(
-            f"Modelo {NOME_MODELO} não encontrado.\n\n"
-            f"Coloque o {NOME_MODELO} na mesma pasta do programa:\n{modelo.parent}"
-        )
+def validar_modelo(modelo: bytes) -> None:
+    """Levanta ErroConferencia se não for um .xlsx válido com a aba PEDIDO."""
     try:
-        with zipfile.ZipFile(modelo) as zin:
+        with zipfile.ZipFile(io.BytesIO(modelo)) as zin:
+            arquivos = {n: zin.read(n) for n in ("xl/workbook.xml", "xl/_rels/workbook.xml.rels")}
+        _arquivo_da_aba(arquivos, ABA_PEDIDO)
+    except (zipfile.BadZipFile, KeyError, ET.ParseError):
+        raise ErroConferencia(f"O modelo {NOME_MODELO} está corrompido ou não é um .xlsx válido.")
+
+
+def gerar_planilha_pedidos_bytes(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
+                                 modelo: bytes, precos: dict[str, float] | None = None) -> bytes:
+    try:
+        with zipfile.ZipFile(io.BytesIO(modelo)) as zin:
             infos = zin.infolist()
             arquivos = {i.filename: zin.read(i.filename) for i in infos}
-    except PermissionError:
-        raise ErroConferencia(f"O modelo {NOME_MODELO} está aberto em outro programa. Feche-o e tente novamente.")
     except (zipfile.BadZipFile, OSError):
         raise ErroConferencia(f"O modelo {NOME_MODELO} está corrompido ou não é um .xlsx válido.")
 
@@ -515,15 +538,42 @@ def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int],
     wb_xml = _ampliar_intervalo(wb_xml, rf"(>{ABA_PEDIDO}!\$[A-Z]+\$\d+:\$[A-Z]+\$)(\d+)", ultima)
     arquivos["xl/workbook.xml"] = wb_xml.encode("utf-8")
 
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info in infos:
+            zout.writestr(info, arquivos[info.filename])
+    return saida.getvalue()
+
+
+def _ler_modelo(modelo: Path) -> bytes:
+    if not modelo.is_file():
+        raise ErroConferencia(
+            f"Modelo {NOME_MODELO} não encontrado.\n\n"
+            f"Coloque o {NOME_MODELO} na mesma pasta do programa:\n{modelo.parent}"
+        )
     try:
-        with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as zout:
-            for info in infos:
-                zout.writestr(info, arquivos[info.filename])
+        return modelo.read_bytes()
+    except PermissionError:
+        raise ErroConferencia(f"O modelo {NOME_MODELO} está aberto em outro programa. Feche-o e tente novamente.")
+    except OSError:
+        raise ErroConferencia(f"O modelo {NOME_MODELO} está corrompido ou não é um .xlsx válido.")
+
+
+def _gravar(destino: Path, dados: bytes) -> None:
+    try:
+        destino.write_bytes(dados)
     except PermissionError:
         raise ErroConferencia(
             f"Não foi possível salvar a planilha:\n{destino}\n\n"
             "Se ela estiver aberta no Excel, feche-a e tente novamente."
         )
+
+
+def gerar_planilha_pedidos(itens: list[ItemPedido], lojas: dict[tuple[int, int], Loja],
+                           modelo: Path, destino: Path, precos: dict[str, float] | None = None) -> None:
+    dados_modelo = _ler_modelo(modelo)
+    dados = gerar_planilha_pedidos_bytes(itens, lojas, dados_modelo, precos)
+    _gravar(destino, dados)
 
 
 def caminho_saida(planilha: Path, pasta_saida: Path | None = None) -> Path:
@@ -539,10 +589,12 @@ def _checar_pasta_saida(pasta_saida: Path | None) -> None:
         )
 
 
-def _ler_pedido(planilha: Path, lojas: dict[tuple[int, int], Loja]) -> Resultado:
-    """Conferência + itens 1/ME de uma planilha, com a marca do nome do arquivo."""
-    marca = extrair_marca(planilha)
-    linhas_por_aba = ler_planilha(planilha)
+def _ler_pedido(planilha: Path | tuple[str, bytes],
+                lojas: dict[tuple[int, int], Loja]) -> Resultado:
+    """Conferência + itens 1/ME de uma planilha (Path, ou (nome, bytes)), com a marca do nome do arquivo."""
+    nome, origem = (planilha[0], planilha[1]) if isinstance(planilha, tuple) else (planilha, planilha)
+    marca = extrair_marca(nome)
+    linhas_por_aba = ler_planilha(origem)
     resultado = comparar(lojas, extrair_cabecalhos(linhas_por_aba))
     resultado.marca = marca
     resultado.pedidos = extrair_pedidos(lojas, linhas_por_aba)
@@ -574,6 +626,15 @@ def processar(planilha: Path, lojas_txt: Path, modelo: Path,
     return destino, resultado
 
 
+def processar_bytes(nome: str, dados: bytes, lojas: dict[tuple[int, int], Loja], modelo: bytes,
+                    precos: dict[str, float] | None = None) -> tuple[bytes, Resultado]:
+    """Fluxo completo em memória: `nome` é o nome do arquivo (de onde vem a marca)."""
+    resultado = _ler_pedido((nome, dados), lojas)
+    saida = gerar_planilha_pedidos_bytes(resultado.pedidos, lojas, modelo, precos)
+    resultado.sem_preco = codigos_sem_preco(resultado.pedidos, precos)
+    return saida, resultado
+
+
 # ---------------------------------------------------------------------------
 # Geração em lote
 # ---------------------------------------------------------------------------
@@ -590,14 +651,16 @@ def nome_saida_lote(numero: int) -> str:
 
 @dataclass
 class ArquivoLote:
-    destino: Path
+    nome: str
     lojas: list[Loja]
     itens: list[ItemPedido]
+    dados: bytes = b""             # conteúdo do .xlsx (versão em memória)
+    destino: Path | None = None    # onde foi salvo (versão de disco)
 
 
 @dataclass
 class ResultadoLote:
-    planilhas: list[tuple[Path, Resultado]]
+    planilhas: list[tuple[str, Resultado]]  # (nome do arquivo, resultado)
     arquivos: list[ArquivoLote]
     sem_preco: list[str] = field(default_factory=list)  # códigos sem preço na planilha de preços
 
@@ -606,6 +669,47 @@ def agrupar_lojas(chaves, tamanho: int = TAMANHO_GRUPO) -> list[list[tuple[int, 
     """Códigos em ordem numérica, divididos em grupos de `tamanho`."""
     ordenadas = sorted(set(chaves))
     return [ordenadas[i:i + tamanho] for i in range(0, len(ordenadas), tamanho)]
+
+
+def processar_lote_bytes(planilhas: list[tuple[str, bytes]], lojas: dict[tuple[int, int], Loja],
+                         modelo: bytes, precos: dict[str, float] | None = None,
+                         tamanho_grupo: int = TAMANHO_GRUPO,
+                         progresso: Callable[[str, float], None] | None = None) -> ResultadoLote:
+    """Lote em memória: `planilhas` são (nome do arquivo, conteúdo). `progresso`, se informado,
+    recebe (texto da etapa, fração concluída de 0 a 1)."""
+    avisar = progresso or (lambda _texto, _fracao: None)
+    if not planilhas:
+        raise ErroConferencia("Nenhuma planilha anexada.")
+    if tamanho_grupo < 1:
+        raise ErroConferencia("O número de lojas por arquivo precisa ser pelo menos 1.")
+
+    lidas: list[tuple[str, Resultado]] = []
+    for i, (nome, dados) in enumerate(planilhas):
+        avisar(f"Lendo {nome} ({i + 1} de {len(planilhas)})", 0.6 * i / len(planilhas))
+        try:
+            lidas.append((nome, _ler_pedido((nome, dados), lojas)))
+        except ErroConferencia as e:
+            raise ErroConferencia(f"Problema na planilha {nome}:\n\n{e}") from None
+
+    # Ordem final em cada arquivo: loja, depois a ordem em que as planilhas foram
+    # anexadas, depois 1 antes de ME; dentro disso mantém a ordem da planilha.
+    todos = [(ordem, it) for ordem, (_, r) in enumerate(lidas) for it in r.pedidos]
+    if not todos:
+        raise ErroConferencia("Nenhuma célula com 1 ou ME foi encontrada nas planilhas anexadas.")
+    todos.sort(key=lambda par: (par[1].chave, par[0], par[1].tipo != "1"))
+
+    grupos = agrupar_lojas((it.chave for _, it in todos), tamanho_grupo)
+    arquivos = []
+    for n, grupo in enumerate(grupos, start=1):
+        avisar(f"Gerando {nome_saida_lote(n)} ({n} de {len(grupos)})", 0.6 + 0.4 * (n - 1) / len(grupos))
+        do_grupo = set(grupo)
+        itens = [it for _, it in todos if it.chave in do_grupo]
+        dados = gerar_planilha_pedidos_bytes(itens, lojas, modelo, precos)
+        arquivos.append(ArquivoLote(nome=nome_saida_lote(n), lojas=[lojas[k] for k in grupo],
+                                    itens=itens, dados=dados))
+
+    return ResultadoLote(planilhas=lidas, arquivos=arquivos,
+                         sem_preco=codigos_sem_preco([it for _, it in todos], precos))
 
 
 def processar_lote(planilhas: list[Path], lojas_txt: Path, modelo: Path,
@@ -624,35 +728,31 @@ def processar_lote(planilhas: list[Path], lojas_txt: Path, modelo: Path,
     avisar("Lendo o lojas.txt e os preços", 0.0)
     lojas = ler_lojas(lojas_txt)
     precos = ler_precos(planilha_precos) if planilha_precos else None
+    dados_modelo = _ler_modelo(modelo)
 
-    lidas: list[tuple[Path, Resultado]] = []
-    for i, planilha in enumerate(planilhas):
-        avisar(f"Lendo {planilha.name} ({i + 1} de {len(planilhas)})", 0.6 * i / len(planilhas))
+    lidas = []
+    for planilha in planilhas:
         try:
-            lidas.append((planilha, _ler_pedido(planilha, lojas)))
-        except ErroConferencia as e:
-            raise ErroConferencia(f"Problema na planilha {planilha.name}:\n\n{e}") from None
-
-    # Ordem final em cada arquivo: loja, depois a ordem em que as planilhas foram
-    # anexadas, depois 1 antes de ME; dentro disso mantém a ordem da planilha.
-    todos = [(ordem, it) for ordem, (_, r) in enumerate(lidas) for it in r.pedidos]
-    if not todos:
-        raise ErroConferencia("Nenhuma célula com 1 ou ME foi encontrada nas planilhas anexadas.")
-    todos.sort(key=lambda par: (par[1].chave, par[0], par[1].tipo != "1"))
+            lidas.append((planilha.name, planilha.read_bytes()))
+        except PermissionError:
+            raise ErroConferencia(
+                f"Problema na planilha {planilha.name}:\n\n"
+                "Não foi possível abrir a planilha porque ela está em uso.\n\n"
+                "Feche o arquivo no Excel (ou em outro programa) e tente novamente."
+            ) from None
+        except OSError:
+            raise ErroConferencia(
+                f"Problema na planilha {planilha.name}:\n\n"
+                "Não foi possível ler a planilha. O arquivo pode estar corrompido "
+                "ou não ser um .xlsx válido."
+            ) from None
+    r = processar_lote_bytes(lidas, lojas, dados_modelo, precos, tamanho_grupo, progresso)
 
     pasta = pasta_saida or planilhas[0].parent
-    grupos = agrupar_lojas((it.chave for _, it in todos), tamanho_grupo)
-    arquivos = []
-    for n, grupo in enumerate(grupos, start=1):
-        avisar(f"Gerando {nome_saida_lote(n)} ({n} de {len(grupos)})", 0.6 + 0.4 * (n - 1) / len(grupos))
-        do_grupo = set(grupo)
-        itens = [it for _, it in todos if it.chave in do_grupo]
-        destino = pasta / nome_saida_lote(n)
-        gerar_planilha_pedidos(itens, lojas, modelo, destino, precos)
-        arquivos.append(ArquivoLote(destino=destino, lojas=[lojas[k] for k in grupo], itens=itens))
-
-    return ResultadoLote(planilhas=lidas, arquivos=arquivos,
-                         sem_preco=codigos_sem_preco([it for _, it in todos], precos))
+    for arq in r.arquivos:
+        arq.destino = pasta / arq.nome
+        _gravar(arq.destino, arq.dados)
+    return r
 
 
 def texto_resumo(resultado: Resultado, destino: Path) -> str:

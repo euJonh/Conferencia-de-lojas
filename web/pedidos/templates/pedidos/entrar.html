@@ -1,0 +1,36 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · Conferência de Pedidos</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231E3A8A'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{% static 'pedidos/estilo.css' %}">
+</head>
+<body class="pagina-entrar">
+  <div class="entrar-caixa">
+    <div class="entrar-marca">
+      <span class="marca-icone grande" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </span>
+      <h1>Conferência de Pedidos</h1>
+      <p>Entre com seu usuário e senha para continuar.</p>
+    </div>
+    <form method="post" action="{% url 'entrar' %}" class="cartao entrar">
+      {% csrf_token %}
+      {% if erro %}<p class="alerta-erro" role="alert">{{ erro }}</p>{% endif %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="campo">
+        <label for="username">Usuário</label>
+        <input id="username" name="username" type="text" autocomplete="username" autofocus required>
+      </div>
+      <div class="campo">
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="botao largo">Entrar</button>
+    </form>
+    <p class="entrar-rodape">Acesso restrito. Fale com o administrador para criar ou recuperar sua conta.</p>
+  </div>
+</body>
+</html>

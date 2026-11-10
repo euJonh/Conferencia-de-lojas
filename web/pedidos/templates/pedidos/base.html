@@ -1,0 +1,59 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Conferência de Pedidos{% endblock %} · Conferência de Pedidos</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231E3A8A'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{% static 'pedidos/estilo.css' %}">
+</head>
+<body>
+  {% with atual=request.resolver_match.url_name %}
+  <aside class="lateral">
+    <div class="marca">
+      <span class="marca-icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </span>
+      <span class="marca-texto">Conferência<small>de Pedidos</small></span>
+    </div>
+    <nav>
+      <span class="nav-secao">Planilhas</span>
+      <a href="{% url 'inicio' %}"{% if atual == 'inicio' %} class="ativo" aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15h6"/></svg>
+        <span>Gerar planilha</span>
+      </a>
+      <a href="{% url 'lote' %}"{% if atual == 'lote' %} class="ativo" aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V5a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2h-2"/><path d="M15 9H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2z"/></svg>
+        <span>Gerar em lote</span>
+      </a>
+      <span class="nav-secao">Sistema</span>
+      <a href="{% url 'configuracoes' %}"{% if atual == 'configuracoes' %} class="ativo" aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        <span>Configurações</span>
+      </a>
+      {% if request.user.is_superuser %}
+      <a href="/admin/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
+        <span>Usuários</span>
+      </a>
+      {% endif %}
+    </nav>
+    <div class="usuario">
+      <span class="avatar" aria-hidden="true">{{ request.user.get_username|slice:":1"|upper }}</span>
+      <span class="usuario-nome" title="{{ request.user.get_username }}">{{ request.user.get_username }}</span>
+      <form method="post" action="{% url 'sair' %}">{% csrf_token %}
+        <button type="submit" class="botao-sair" title="Sair">Sair</button>
+      </form>
+    </div>
+  </aside>
+  {% endwith %}
+  <main class="conteudo">
+    <div class="pagina">
+      {% for m in messages %}
+      <div class="mensagem {{ m.tags }}" role="status">{{ m }}</div>
+      {% endfor %}
+      {% block conteudo %}{% endblock %}
+    </div>
+  </main>
+</body>
+</html>

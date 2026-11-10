@@ -179,6 +179,111 @@ python conferencia.py
 python -m unittest test_conferencia -v
 ```
 
+## Versão web
+
+Além do aplicativo Windows, o repositório tem um site (Django, pasta `web/`) que faz a
+mesma conferência e geração pelo navegador, com login. Ele usa o mesmo `conferencia.py`,
+o `lojas.txt` e o modelo `PLANILHA DE PEDIDOS.xlsx` da raiz, então as regras e a planilha
+gerada são as mesmas do `.exe`. Fica no branch `web`.
+
+| O quê | Para quê | Onde é usado |
+|---|---|---|
+| [Django](https://www.djangoproject.com/) 5.2 | Site, login, administração de usuários | `web/` |
+| [PostgreSQL](https://www.postgresql.org/) (`psycopg`) | Banco em produção; localmente usa SQLite | `DATABASE_URL` |
+| [dj-database-url](https://github.com/jazzband/dj-database-url) | Ler `DATABASE_URL` | `web/site_conferencia/settings.py` |
+| [gunicorn](https://gunicorn.org/) | Servidor de produção | `render.yaml` |
+| [WhiteNoise](https://whitenoise.readthedocs.io/) | Servir os arquivos estáticos | `web/site_conferencia/settings.py` |
+
+As dependências estão em [`requirements-web.txt`](requirements-web.txt).
+
+### Rodar localmente
+
+```bat
+python -m pip install -r requirements-web.txt
+python web/manage.py migrate
+python web/manage.py createsuperuser
+python web/manage.py runserver
+```
+
+Abra http://127.0.0.1:8000. Localmente o `manage.py` liga o modo de desenvolvimento
+(`DEBUG=1`) e usa um banco SQLite (`web/db.sqlite3`). Testes:
+
+```bat
+python web/manage.py test pedidos
+```
+
+### Variáveis de ambiente
+
+| Variável | Para quê |
+|---|---|
+| `SECRET_KEY` | Obrigatória em produção (o Render gera sozinho). |
+| `DEBUG` | `False` por padrão; `manage.py` define `1` só para uso local. |
+| `ALLOWED_HOSTS` | Domínios aceitos, separados por vírgula (`.onrender.com`). |
+| `DATABASE_URL` | Banco PostgreSQL (string de conexão do Supabase, colada no painel do Render). Obrigatória quando `DEBUG` é falso: sem ela o site não sobe, em vez de cair em SQLite. |
+
+### Publicar no Render
+
+O arquivo [`render.yaml`](render.yaml) é um Blueprint com o serviço web `conferencia-lojas`
+(plano `free`, branch `web`). O banco PostgreSQL fica no [Supabase](https://supabase.com/),
+não no Render.
+
+No plano gratuito do Render o serviço dorme após 15 minutos sem acesso (o primeiro acesso
+depois disso demora cerca de 1 minuto), tem CPU reduzida (gerações grandes ficam mais lentas)
+e não tem Shell; por isso o administrador é criado a partir do seu computador (passo 3 abaixo).
+
+**Banco no Supabase**
+
+1. Crie um projeto no Supabase e guarde a senha do banco.
+2. Clique em **Connect** e copie a string do **Session pooler** (porta `5432`, host
+   `*.pooler.supabase.com`). Não use *Direct connection* (só IPv6, o Render não alcança) nem o
+   *Transaction pooler* (porta `6543`). Troque `[YOUR-PASSWORD]` pela senha.
+3. No Render, cole essa string na variável `DATABASE_URL` (o Blueprint a declara com
+   `sync: false`, então o Render pede o valor na criação). Ela também precisa existir durante o
+   build, porque o `collectstatic` carrega as configurações; as variáveis do Render valem nos dois.
+4. **Segurança:** desative a Data API em **Project Settings > Data API** (ou tire `public` dos
+   schemas expostos). As tabelas que o Django cria em `public` não têm RLS; com a API ligada, a
+   planilha de preços e os hashes de senha ficariam legíveis pela API REST do Supabase com a
+   chave anon.
+5. No plano gratuito, o projeto é pausado após cerca de 7 dias sem atividade; é preciso
+   reativá-lo no painel.
+
+1. No Render, **New > Blueprint**, escolha este repositório e o branch `web`.
+2. Confirme a criação. O build roda `web/build.sh` (instala as dependências e roda o
+   `collectstatic`) e, a cada início, o serviço aplica as migrações.
+3. Quando o deploy terminar, crie o primeiro administrador **no seu computador**, apontando
+   para o banco do Supabase (PowerShell, na pasta do repositório, branch `web`):
+   ```powershell
+   python -m pip install -r requirements-web.txt
+   $env:DATABASE_URL = "<string do Session pooler>?sslmode=require"
+   python web/manage.py createsuperuser
+   Remove-Item Env:DATABASE_URL
+   ```
+4. Entre no site, abra `/admin` e cadastre os usuários que vão usar o sistema.
+5. Em **Configurações**, anexe a planilha de preços (`CODIGO` na coluna A e
+   `VALOR UNITARIO` na coluna K).
+
+O serviço roda `gunicorn` com 1 worker e timeout de 120 segundos (`--workers 1 --timeout 120`),
+porque gerar um lote grande pode levar mais que os 30 segundos padrão. Com um worker, uma
+geração roda por vez (as outras esperam) e o pico de memória fica em cerca de 343 MB para um
+lote de 30 planilhas de 3.000 linhas, dentro dos 512 MB da instância. Lotes maiores exigem um
+plano maior do Render. O Render confere
+`/saude` (resposta `ok`, sem login, sem checar o Host e sem redirecionar para HTTPS) para saber se o serviço
+está de pé. Os logs vão para o stderr (aparecem em **Logs** no Render): erros 500 saem com o
+traceback, sem o conteúdo das requisições.
+
+**Limites de envio:** 10 MB por planilha, 30 planilhas por lote e **100 MB no total do lote**
+(qualquer outro envio, 12 MB). Acima disso o site responde 413 antes de ler o arquivo, e a
+tela do lote avisa antes de enviar. A instância tem 512 MB de memória; o limite em bytes não
+limita o número de linhas, e planilhas com centenas de milhares de linhas gastam muita
+memória (medido: 10 planilhas de 90 mil linhas, 31 MB no total, chegaram a 3 GB).
+
+O site só responde em HTTPS (redirecionamento, cookies seguros e HSTS de 1 ano).
+`python web/manage.py check --deploy` precisa de `DEBUG=False` e `SECRET_KEY` (e `DATABASE_URL`) definidos
+no ambiente; sem eles o Django confere a configuração de desenvolvimento. Ele mostra apenas dois avisos, deixados de propósito:
+`SECURE_HSTS_INCLUDE_SUBDOMAINS` e `SECURE_HSTS_PRELOAD`. O domínio `onrender.com` não
+é nosso, então não faz sentido forçar HSTS nos subdomínios nem entrar na lista de
+pré-carregamento dos navegadores. Com um domínio próprio, dá para ligar os dois.
+
 ## Licença
 
 MIT. Veja [LICENSE](LICENSE).
