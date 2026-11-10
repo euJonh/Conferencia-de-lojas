@@ -362,8 +362,10 @@ TIPO_PEDIDO = {"1": "TRANSFERENCIA TESTER 18", "ME": "TRANSFERENCIA ME"}
 MSG_NOTA = {"1": "TESTER SEPHORA", "ME": "TRANSFORMAR TESTER SEPHORA"}
 LIMITE_MSG_NOTA = 99  # linhas por MSG NOTA antes de o PED.CLIENTE ganhar sufixo (1, 2...)
 
-# Nome da planilha do usuário: Pedido_<NOME DA MARCA>_<resto>.xlsx
-PADRAO_NOME_PLANILHA = re.compile(r"^\s*Pedido_(.+?)_", re.I)
+# Nome da planilha do usuário: Pedido_<NOME DA MARCA>.xlsx ou Pedido_<NOME DA MARCA>_<resto>.xlsx
+PADRAO_NOME_PLANILHA = re.compile(r"^\s*Pedido_([^_]*)", re.I)
+# Sufixo de cópia que o navegador/Windows põe no nome: "Pedido_NARS (1).xlsx".
+SUFIXO_COPIA = re.compile(r"\s*\(\d+\)\s*$")
 
 PADRAO_LINHA_XML = re.compile(r'<row\b[^>]*?\br="(\d+)"[^>]*?(?:/>|>(.*?)</row>)', re.S)
 PADRAO_CELULA_XML = re.compile(r'<c\b[^>]*?\br="([A-Z]+)\d+"[^>]*?(?:/>|>.*?</c>)', re.S)
@@ -371,15 +373,18 @@ PADRAO_ESTILO = re.compile(r'\bs="(\d+)"')
 
 
 def extrair_marca(planilha: Path | str) -> str:
-    """'Pedido_NARS_2026-09-04..2026-10-03.xlsx' -> 'NARS'. Aceita o caminho ou só o nome do arquivo."""
+    """'Pedido_NARS_2026-09-04..2026-10-03.xlsx' ou 'Pedido_NARS.xlsx' -> 'NARS'.
+
+    A marca vai de 'Pedido_' até o próximo '_' (ou o fim do nome). Aceita o caminho ou só o nome do arquivo.
+    """
     nome = planilha if isinstance(planilha, str) else planilha.name
     m = PADRAO_NOME_PLANILHA.match(Path(nome).stem)
-    marca = m.group(1).strip() if m else ""
+    marca = SUFIXO_COPIA.sub("", m.group(1)).strip() if m else ""
     if not marca:
         raise ErroConferencia(
             "Não foi possível identificar a marca pelo nome da planilha.\n\n"
             f"Nome recebido: {nome}\n"
-            "Formato esperado: Pedido_NOME DA MARCA_....xlsx"
+            "Formato esperado: Pedido_NOME DA MARCA.xlsx (pode ter algo depois: Pedido_NARS_outubro.xlsx)"
         )
     return marca
 

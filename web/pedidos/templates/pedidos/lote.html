@@ -4,7 +4,7 @@
 {% block conteudo %}
 <header class="cabecalho">
   <h1 class="titulo-tela">Gerar em lote</h1>
-  {% if config_ok %}<p class="suave">Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>{% endif %}
+  {% if config_ok %}<p class="suave">Anexe várias planilhas Pedido_MARCA....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>{% endif %}
 </header>
 {% if config_ok %}
 

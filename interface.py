@@ -417,7 +417,7 @@ class App:
     def _tela_inicio(self) -> tk.Frame:
         tela = tk.Frame(self.conteudo, bg=COR["fundo"])
         cabecalho_tela(tela, "Gerar planilha de pedidos",
-                       f"Anexe a planilha Pedido_MARCA_....xlsx para gerar a {c.NOME_SAIDA}.")
+                       f"Anexe a planilha Pedido_MARCA....xlsx para gerar a {c.NOME_SAIDA}.")
 
         anexo = cartao(tela)
         anexo.pack(fill="x")
@@ -530,7 +530,7 @@ class App:
     def _atualizar_textos_lote(self):
         n = self.tamanho_grupo()
         self.lbl_sub_lote.config(
-            text=f"Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em "
+            text=f"Anexe várias planilhas Pedido_MARCA....xlsx. Os pedidos são juntados e divididos em "
                  f"arquivos de {n} loja{'s' if n > 1 else ''}, em ordem numérica: "
                  f"{c.nome_saida_lote(1)}, {c.nome_saida_lote(2)}... (altere em Configurações)")
 

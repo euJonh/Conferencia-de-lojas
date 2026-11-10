@@ -1,6 +1,6 @@
 # Conferência de Lojas
 
-Aplicativo Windows que transforma as planilhas de pedido por loja (`Pedido_MARCA_....xlsx`)
+Aplicativo Windows que transforma as planilhas de pedido por loja (`Pedido_MARCA....xlsx`)
 na planilha de importação `PLANILHA DE PEDIDOS`, conferindo as lojas contra a lista
 oficial (`lojas.txt`) e preenchendo preço, cliente, mensagem da nota e demais campos.
 

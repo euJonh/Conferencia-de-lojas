@@ -45,6 +45,13 @@ class LoteTests(TestCase):
         return [SimpleUploadedFile("Pedido_NARS_a.xlsx", bytes_planilha("NARS", 1)),
                 SimpleUploadedFile("Pedido_Shiseido_b.xlsx", bytes_planilha("Shiseido", "ME"))]
 
+    def test_lote_aceita_nome_so_com_marca(self):
+        r = self.client.post("/gerar-lote", {"planilhas": [
+            SimpleUploadedFile("Pedido_NARS.xlsx", bytes_planilha("NARS", 1)),
+            SimpleUploadedFile("Pedido_Shiseido (1).xlsx", bytes_planilha("Shiseido", "ME"))]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.loads(r["X-Resumo"])["planilhas"], 2)
+
     def test_lote_gera_zip(self):
         r = self.client.post("/gerar-lote", {"planilhas": self.dois()})
         self.assertEqual(r.status_code, 200)

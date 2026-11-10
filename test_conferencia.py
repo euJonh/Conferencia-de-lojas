@@ -154,7 +154,12 @@ class TesteConferencia(unittest.TestCase):
         self.assertEqual(c.extrair_marca(Path("Pedido_Drunk Elephant_ teste outubro - sem formulas.xlsx")),
                          "Drunk Elephant")
         self.assertEqual(c.extrair_marca(Path("pedido_Shiseido_x.xlsx")), "Shiseido")
-        for ruim in ("PLANILHA DE PEDIDOS.xlsx", "Pedido_NARS.xlsx", "Pedido__x.xlsx"):
+        # Basta começar com Pedido_MARCA: o que vem depois é opcional.
+        self.assertEqual(c.extrair_marca("Pedido_NARS.xlsx"), "NARS")
+        self.assertEqual(c.extrair_marca("Pedido_Drunk Elephant.xlsx"), "Drunk Elephant")
+        self.assertEqual(c.extrair_marca("Pedido_Shiseido (1).xlsx"), "Shiseido")
+        self.assertEqual(c.extrair_marca("Pedido_NARS_.xlsx"), "NARS")
+        for ruim in ("PLANILHA DE PEDIDOS.xlsx", "Pedido_.xlsx", "Pedido__x.xlsx", "Pedido_ (2).xlsx"):
             with self.assertRaises(c.ErroConferencia, msg=ruim):
                 c.extrair_marca(Path(ruim))
 

@@ -72,6 +72,11 @@ class InicioTests(TestCase):
     def test_extensao_maiuscula_aceita(self):
         self.assertEqual(self.gerar("Pedido_NARS_x.XLSX").status_code, 200)
 
+    def test_nome_so_com_marca_aceito(self):
+        r = self.gerar("Pedido_NARS.xlsx")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.loads(r["X-Resumo"])["marca"], "NARS")
+
     def test_nome_fora_do_padrao(self):
         r = self.gerar("planilha.xlsx")
         self.assertEqual(r.status_code, 400)
