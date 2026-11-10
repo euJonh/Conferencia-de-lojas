@@ -224,8 +224,12 @@ python web/manage.py test pedidos
 ### Publicar no Render
 
 O arquivo [`render.yaml`](render.yaml) é um Blueprint com o serviço web `conferencia-lojas`
-(plano `starter`, branch `web`). O banco PostgreSQL fica no [Supabase](https://supabase.com/),
+(plano `free`, branch `web`). O banco PostgreSQL fica no [Supabase](https://supabase.com/),
 não no Render.
+
+No plano gratuito do Render o serviço dorme após 15 minutos sem acesso (o primeiro acesso
+depois disso demora cerca de 1 minuto), tem CPU reduzida (gerações grandes ficam mais lentas)
+e não tem Shell; por isso o administrador é criado a partir do seu computador (passo 3 abaixo).
 
 **Banco no Supabase**
 
@@ -246,9 +250,13 @@ não no Render.
 1. No Render, **New > Blueprint**, escolha este repositório e o branch `web`.
 2. Confirme a criação. O build roda `web/build.sh` (instala as dependências e roda o
    `collectstatic`) e, a cada início, o serviço aplica as migrações.
-3. Quando o deploy terminar, abra o **Shell** do serviço e crie o primeiro administrador:
-   ```sh
-   cd web && python manage.py createsuperuser
+3. Quando o deploy terminar, crie o primeiro administrador **no seu computador**, apontando
+   para o banco do Supabase (PowerShell, na pasta do repositório, branch `web`):
+   ```powershell
+   python -m pip install -r requirements-web.txt
+   $env:DATABASE_URL = "<string do Session pooler>?sslmode=require"
+   python web/manage.py createsuperuser
+   Remove-Item Env:DATABASE_URL
    ```
 4. Entre no site, abra `/admin` e cadastre os usuários que vão usar o sistema.
 5. Em **Configurações**, anexe a planilha de preços (`CODIGO` na coluna A e

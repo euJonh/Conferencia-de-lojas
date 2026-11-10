@@ -2,7 +2,7 @@ services:
   - type: web
     name: conferencia-lojas
     runtime: python
-    plan: starter
+    plan: free
     region: oregon
     branch: web
     healthCheckPath: /saude
