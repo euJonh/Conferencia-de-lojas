@@ -157,7 +157,7 @@ class ConfiguracoesTests(TestCase):
         self.assertIn("mudança 24", corpo)
         self.assertNotIn("mudança 04", corpo)
         self.assertLess(corpo.index("mudança 24"), corpo.index("mudança 23"))
-        self.assertIn(" · maria · mudança 24", corpo)
+        self.assertIn("<strong>maria</strong><span>mudança 24</span>", corpo)
 
     def test_get_nao_altera_nada(self):
         for nome in ("configuracoes_lojas", "configuracoes_modelo", "configuracoes_precos",

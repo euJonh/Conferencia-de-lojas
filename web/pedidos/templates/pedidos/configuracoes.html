@@ -1,11 +1,13 @@
 {% extends "pedidos/base.html" %}
 {% block titulo %}Configurações{% endblock %}
 {% block conteudo %}
-<h1 class="titulo-tela">Configurações</h1>
-<p class="suave">Valem para todos os usuários.</p>
+<header class="cabecalho">
+  <h1 class="titulo-tela">Configurações</h1>
+  <p class="suave">Valem para todos os usuários.</p>
+</header>
 
 <section class="cartao bloco">
-  <h2>Lista de lojas</h2>
+  <h2><span class="h2-icone">1</span>Lista de lojas</h2>
   <p class="suave">{{ qtd_lojas }} loja{{ qtd_lojas|pluralize }} válida{{ qtd_lojas|pluralize }}. Uma por linha: 20-256 ou 20-256 LOJA MOOCA (SP).</p>
   <form method="post" action="{% url 'configuracoes_lojas' %}" enctype="multipart/form-data">{% csrf_token %}
     <textarea name="lojas_texto" rows="10" class="campo-texto">{{ lojas_texto }}</textarea>
@@ -19,8 +21,8 @@
 </section>
 
 <section class="cartao bloco">
-  <h2>Modelo da planilha</h2>
-  <p>{% if cfg.modelo_nome %}{{ cfg.modelo_nome }}{% else %}<span class="suave">Nenhum modelo cadastrado.</span>{% endif %}</p>
+  <h2><span class="h2-icone">2</span>Modelo da planilha</h2>
+  <p>{% if cfg.modelo_nome %}<span class="arquivo-atual">{{ cfg.modelo_nome }}</span>{% else %}<span class="suave">Nenhum modelo cadastrado.</span>{% endif %}</p>
   <form method="post" action="{% url 'configuracoes_modelo' %}" enctype="multipart/form-data" class="linha-acoes">{% csrf_token %}
     <input type="file" name="modelo" accept=".xlsx" required>
     <button type="submit" class="botao">Trocar modelo</button>
@@ -28,9 +30,9 @@
 </section>
 
 <section class="cartao bloco">
-  <h2>Planilha de preços</h2>
+  <h2><span class="h2-icone">3</span>Planilha de preços</h2>
   {% if cfg.precos_nome %}
-  <p>{{ cfg.precos_nome }} · {{ cfg.precos_qtd }} produto{{ cfg.precos_qtd|pluralize }} · {{ cfg.precos_em|date:"d/m/Y H:i" }}</p>
+  <p><span class="arquivo-atual">{{ cfg.precos_nome }}</span> · {{ cfg.precos_qtd }} produto{{ cfg.precos_qtd|pluralize }} · {{ cfg.precos_em|date:"d/m/Y H:i" }}</p>
   {% else %}
   <p class="suave">Nenhuma planilha de preços: a coluna D (PRC.VEN) fica vazia.</p>
   {% endif %}
@@ -46,7 +48,7 @@
 </section>
 
 <section class="cartao bloco">
-  <h2>Lojas por arquivo</h2>
+  <h2><span class="h2-icone">4</span>Lojas por arquivo</h2>
   <p class="suave">No Gerar em lote, cada arquivo de saída recebe este número de lojas.</p>
   <div class="linha-acoes">
     <form method="post" action="{% url 'configuracoes_lojas_por_arquivo' %}">{% csrf_token %}
@@ -66,10 +68,10 @@
 </section>
 
 <section class="cartao bloco">
-  <h2>Histórico</h2>
+  <h2>Histórico de alterações</h2>
   {% if historico %}
   <ul class="historico">
-    {% for a in historico %}<li>{{ a.quando|date:"d/m H:i" }} · {{ a.usuario.get_username|default:"(removido)" }} · {{ a.descricao }}</li>
+    {% for a in historico %}<li><time>{{ a.quando|date:"d/m H:i" }}</time><strong>{{ a.usuario.get_username|default:"(removido)" }}</strong><span>{{ a.descricao }}</span></li>
     {% endfor %}
   </ul>
   {% else %}

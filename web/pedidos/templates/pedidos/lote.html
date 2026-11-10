@@ -2,12 +2,15 @@
 {% load static %}
 {% block titulo %}Gerar em lote{% endblock %}
 {% block conteudo %}
-<h1 class="titulo-tela">Gerar em lote</h1>
+<header class="cabecalho">
+  <h1 class="titulo-tela">Gerar em lote</h1>
+  {% if config_ok %}<p class="suave">Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>{% endif %}
+</header>
 {% if config_ok %}
-<p class="suave">Anexe várias planilhas Pedido_MARCA_....xlsx. Os pedidos são juntados e divididos em arquivos de {{ por_arquivo }} loja{% if plural %}s{% endif %}, em ordem numérica: PLANILHA DE PEDIDOS - (1).xlsx, PLANILHA DE PEDIDOS - (2).xlsx... Tudo baixa em um só arquivo .zip (altere em Configurações).</p>
 
 <form id="form-lote" class="cartao anexo" data-url="{% url 'gerar_lote' %}" data-max="{{ max_planilhas }}" data-limite="{{ limite_lote }}" data-msg-limite="{{ msg_limite_lote }}">{% csrf_token %}
   <div id="zona" class="zona" tabindex="0">
+    <svg class="zona-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-1 8.9"/><path d="M12 12v8M9 15l3-3 3 3"/></svg>
     <strong id="qtd-lote">Planilhas anexadas (0)</strong>
     <span class="suave">Arraste os arquivos .xlsx para cá ou use o botão (até {{ max_planilhas }} por vez).</span>
     <label class="botao">Adicionar planilhas
@@ -22,8 +25,11 @@
 </form>
 {% else %}
 <div class="cartao aviso">
-  <strong>Configuração incompleta.</strong>
-  <p>Cadastre a lista de lojas e o modelo em <a href="{% url 'configuracoes' %}">Configurações</a> antes de gerar planilhas.</p>
+  <svg class="aviso-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>
+  <div>
+    <strong>Configuração incompleta.</strong>
+    <p>Cadastre a lista de lojas e o modelo em <a href="{% url 'configuracoes' %}">Configurações</a> antes de gerar planilhas.</p>
+  </div>
 </div>
 {% endif %}
 
@@ -61,7 +67,9 @@
     function desenhar() {
       lista.replaceChildren();
       arquivos.forEach(function (arq, i) {
-        var li = el("li", "", arq.name + " ");
+        var li = el("li", "", "");
+        li.appendChild(el("span", "arquivo-nome", arq.name));
+        li.appendChild(el("span", "arquivo-tamanho", (arq.size / 1024 < 1024 ? Math.max(1, Math.round(arq.size / 1024)) + " KB" : (arq.size / 1048576).toFixed(1) + " MB")));
         var b = el("button", "link", "Remover");
         b.type = "button";
         b.addEventListener("click", function () {
