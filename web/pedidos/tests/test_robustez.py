@@ -13,6 +13,7 @@ from django.test.utils import CaptureQueriesContext
 from pedidos import servicos
 from pedidos.middleware import LimiteTamanhoMiddleware, LIMITE_ENVIO, LIMITE_LOTE, MSG_ENVIO_GRANDE, MSG_LOTE_GRANDE
 from pedidos.models import Configuracao
+from pedidos.views import LIMITE_RASCUNHO
 from pedidos.tests.test_configuracoes import modelo_valido
 from pedidos.tests.test_servicos import planilha_precos
 
@@ -96,10 +97,24 @@ class SaudeTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content, b"ok")
 
-    @override_settings(SECURE_SSL_REDIRECT=True)
-    def test_saude_nao_redireciona_para_https(self):
-        self.assertEqual(self.client.get("/saude").status_code, 200)
-        self.assertEqual(self.client.get("/entrar").status_code, 301)
+    @override_settings(SECURE_SSL_REDIRECT=True, ALLOWED_HOSTS=[".onrender.com"])
+    def test_saude_ignora_host_e_redirecionamento_https(self):
+        r = self.client.get("/saude", HTTP_HOST="10.0.0.5")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content, b"ok")
+        self.assertEqual(self.client.get("/entrar", HTTP_HOST="x.onrender.com").status_code, 301)
+
+    @override_settings(ALLOWED_HOSTS=[".onrender.com"])
+    def test_outros_caminhos_com_host_invalido_dao_400(self):
+        with self.assertLogs("django.security.DisallowedHost", "ERROR"):
+            r = self.client.get("/entrar", HTTP_HOST="10.0.0.5")
+        self.assertEqual(r.status_code, 400)
+
+    @override_settings(ALLOWED_HOSTS=[".onrender.com"])
+    def test_post_em_saude_nao_e_tratado_como_saude(self):
+        with self.assertLogs("django.security.DisallowedHost", "ERROR"):
+            r = self.client.post("/saude", HTTP_HOST="10.0.0.5")
+        self.assertEqual(r.status_code, 400)
 
 
 class LogsTests(TestCase):
@@ -143,6 +158,20 @@ class RascunhoLojasTests(TestCase):
     def test_texto_valido_nao_deixa_rascunho(self):
         self.client.post("/configuracoes/lojas", {"lojas_texto": "20-073"}, follow=True)
         self.assertNotIn("lojas_rascunho", self.client.session)
+
+
+class RascunhoGrandeTests(TestCase):
+    def setUp(self):
+        self.client.force_login(User.objects.create_user("ana", password="x"))
+
+    def test_rascunho_acima_de_200kb_nao_vai_para_a_sessao(self):
+        texto = "abc\n" * (LIMITE_RASCUNHO // 4 + 1)
+        self.client.post("/configuracoes/lojas", {"lojas_texto": texto}, follow=True)
+        self.assertNotIn("lojas_rascunho", self.client.session)
+
+    def test_rascunho_pequeno_continua_na_sessao(self):
+        self.client.post("/configuracoes/lojas", {"lojas_texto": "abc"})
+        self.assertEqual(self.client.session["lojas_rascunho"], "abc")
 
 
 class ResumoLimitadoTests(TestCase):

@@ -62,9 +62,7 @@ def sair(request):
     return redirect("entrar")
 
 
-def saude(request):
-    """Verificação de saúde do Render: sem login e sem banco."""
-    return HttpResponse("ok", content_type="text/plain")
+LIMITE_RASCUNHO = 200 * 1024  # bytes do texto das lojas guardado na sessão após um erro
 
 
 @login_required
@@ -192,7 +190,8 @@ def configuracoes_lojas(request):
     try:
         qtd = servicos.salvar_lojas(texto, request.user)
     except ErroConferencia:
-        request.session["lojas_rascunho"] = texto  # a próxima tela devolve o texto ao campo
+        if len(texto.encode()) <= LIMITE_RASCUNHO:  # a próxima tela devolve o texto ao campo
+            request.session["lojas_rascunho"] = texto
         raise
     return f"Lista de lojas salva ({qtd} lojas)."
 

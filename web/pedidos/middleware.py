@@ -1,6 +1,6 @@
 """Middlewares de limite de envio, antes de o Django ler o corpo da requisição."""
 from django.core.exceptions import TooManyFilesSent
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 
 MB = 1024 * 1024
@@ -8,6 +8,19 @@ LIMITE_LOTE = 100 * MB   # bytes do envio inteiro em /gerar-lote
 LIMITE_ENVIO = 12 * MB   # bytes de qualquer outro POST (um arquivo de até 10 MB + formulário)
 MSG_LOTE_GRANDE = "O lote passa de 100 MB. Divida as planilhas em mais de um envio."
 MSG_ENVIO_GRANDE = "O envio passa do tamanho permitido."
+
+
+class SaudeMiddleware:
+    """Vai antes de tudo: responde GET /saude (health check do Render) com 200 "ok", sem
+    validar o Host e sem redirecionar para HTTPS. Não usa sessão nem banco."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method == "GET" and request.path_info == "/saude":
+            return HttpResponse("ok", content_type="text/plain")
+        return self.get_response(request)
 
 
 def _tamanho(request) -> int | None:

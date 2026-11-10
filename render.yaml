@@ -1,8 +1,3 @@
-databases:
-  - name: conferencia-db
-    plan: basic-256mb  # o plano gratuito do Render Postgres expira
-    region: oregon
-
 services:
   - type: web
     name: conferencia-lojas
@@ -12,7 +7,7 @@ services:
     branch: web
     healthCheckPath: /saude
     buildCommand: ./web/build.sh
-    startCommand: cd web && python manage.py migrate --noinput && gunicorn site_conferencia.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: cd web && python manage.py migrate --noinput && gunicorn site_conferencia.wsgi --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.2
@@ -23,6 +18,4 @@ services:
       - key: ALLOWED_HOSTS
         value: .onrender.com
       - key: DATABASE_URL
-        fromDatabase:
-          name: conferencia-db
-          property: connectionString
+        sync: false  # string do Session pooler do Supabase, preenchida no painel do Render

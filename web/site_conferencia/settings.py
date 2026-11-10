@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 AUTHENTICATION_BACKENDS = ["pedidos.autenticacao.BackendComBloqueio"]
 
 MIDDLEWARE = [
+    "pedidos.middleware.SaudeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "pedidos.middleware.LimiteTamanhoMiddleware",
@@ -69,7 +70,8 @@ WSGI_APPLICATION = "site_conferencia.wsgi.application"
 if not DEBUG and not os.environ.get("DATABASE_URL"):
     raise ImproperlyConfigured("A variável de ambiente DATABASE_URL é obrigatória em produção.")
 DATABASES = {"default": dj_database_url.config(
-    default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
+    default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+    conn_max_age=60, conn_health_checks=True, ssl_require=not DEBUG)}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -111,9 +113,6 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 30
 # Sessão expira após 12 horas sem uso.
 SESSION_COOKIE_AGE = 43200
 SESSION_SAVE_EVERY_REQUEST = True
-
-# O health check do Render chama /saude por HTTP, sem passar pelo redirecionamento.
-SECURE_REDIRECT_EXEMPT = [r"^saude$"]
 
 # Logs no stderr (o Render guarda). Sem corpo de requisição; 4xx do django.request ficam de fora.
 LOGGING = {

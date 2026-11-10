@@ -219,13 +219,29 @@ python web/manage.py test pedidos
 | `SECRET_KEY` | Obrigatória em produção (o Render gera sozinho). |
 | `DEBUG` | `False` por padrão; `manage.py` define `1` só para uso local. |
 | `ALLOWED_HOSTS` | Domínios aceitos, separados por vírgula (`.onrender.com`). |
-| `DATABASE_URL` | Banco PostgreSQL (o Render preenche a partir do `conferencia-db`). Obrigatória quando `DEBUG` é falso: sem ela o site não sobe, em vez de cair em SQLite. |
+| `DATABASE_URL` | Banco PostgreSQL (string de conexão do Supabase, colada no painel do Render). Obrigatória quando `DEBUG` é falso: sem ela o site não sobe, em vez de cair em SQLite. |
 
 ### Publicar no Render
 
-O arquivo [`render.yaml`](render.yaml) é um Blueprint: banco `conferencia-db`
-(PostgreSQL, plano pago `basic-256mb`, porque o plano gratuito do Render expira) e o
-serviço web `conferencia-lojas` (plano `starter`, branch `web`).
+O arquivo [`render.yaml`](render.yaml) é um Blueprint com o serviço web `conferencia-lojas`
+(plano `starter`, branch `web`). O banco PostgreSQL fica no [Supabase](https://supabase.com/),
+não no Render.
+
+**Banco no Supabase**
+
+1. Crie um projeto no Supabase e guarde a senha do banco.
+2. Clique em **Connect** e copie a string do **Session pooler** (porta `5432`, host
+   `*.pooler.supabase.com`). Não use *Direct connection* (só IPv6, o Render não alcança) nem o
+   *Transaction pooler* (porta `6543`). Troque `[YOUR-PASSWORD]` pela senha.
+3. No Render, cole essa string na variável `DATABASE_URL` (o Blueprint a declara com
+   `sync: false`, então o Render pede o valor na criação). Ela também precisa existir durante o
+   build, porque o `collectstatic` carrega as configurações; as variáveis do Render valem nos dois.
+4. **Segurança:** desative a Data API em **Project Settings > Data API** (ou tire `public` dos
+   schemas expostos). As tabelas que o Django cria em `public` não têm RLS; com a API ligada, a
+   planilha de preços e os hashes de senha ficariam legíveis pela API REST do Supabase com a
+   chave anon.
+5. No plano gratuito, o projeto é pausado após cerca de 7 dias sem atividade; é preciso
+   reativá-lo no painel.
 
 1. No Render, **New > Blueprint**, escolha este repositório e o branch `web`.
 2. Confirme a criação. O build roda `web/build.sh` (instala as dependências e roda o
@@ -238,9 +254,12 @@ serviço web `conferencia-lojas` (plano `starter`, branch `web`).
 5. Em **Configurações**, anexe a planilha de preços (`CODIGO` na coluna A e
    `VALOR UNITARIO` na coluna K).
 
-O serviço roda `gunicorn` com 2 workers e timeout de 120 segundos (`--workers 2 --timeout 120`),
-porque gerar um lote grande pode levar mais que os 30 segundos padrão. O Render confere
-`/saude` (resposta `ok`, sem login e sem redirecionar para HTTPS) para saber se o serviço
+O serviço roda `gunicorn` com 1 worker e timeout de 120 segundos (`--workers 1 --timeout 120`),
+porque gerar um lote grande pode levar mais que os 30 segundos padrão. Com um worker, uma
+geração roda por vez (as outras esperam) e o pico de memória fica em cerca de 343 MB para um
+lote de 30 planilhas de 3.000 linhas, dentro dos 512 MB da instância. Lotes maiores exigem um
+plano maior do Render. O Render confere
+`/saude` (resposta `ok`, sem login, sem checar o Host e sem redirecionar para HTTPS) para saber se o serviço
 está de pé. Os logs vão para o stderr (aparecem em **Logs** no Render): erros 500 saem com o
 traceback, sem o conteúdo das requisições.
 
